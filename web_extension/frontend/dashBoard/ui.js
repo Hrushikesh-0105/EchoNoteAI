@@ -3,10 +3,9 @@
 
 const recordButton = document.getElementById('recordButton');
 const titleInput = document.getElementById('recordingTitle');
-const recordIcon = document.getElementById('recordIcon');
 const recordText = document.getElementById('recordText');
+const statusIndicator = document.getElementById('statusIndicator');
 const statusText = document.getElementById('statusText');
-const statusDot = document.querySelector('.status-dot');
 const timerDisplay = document.getElementById('recordingTimer');
 const timerText = document.getElementById('timerText');
 const userNameLabel = document.getElementById('userName');
@@ -33,18 +32,17 @@ export function setRecordButtonEnabled(enabled) {
 
 /** Switches every recording-related UI element between its recording/idle look. */
 export function setRecordingState(recording) {
+    recordButton.classList.toggle('recording', recording);
+    statusIndicator.classList.toggle('recording', recording);
+
     if (recording) {
-        recordIcon.textContent = '⏹️';
         recordText.textContent = 'Stop Recording';
         statusText.textContent = 'Recording...';
-        statusDot.style.backgroundColor = 'red';
-        timerDisplay.style.display = 'block';
+        timerDisplay.style.display = 'flex';
         titleInput.disabled = true;
     } else {
-        recordIcon.textContent = '🔴';
         recordText.textContent = 'Start Full Screen Recording';
         statusText.textContent = 'Recording stopped';
-        statusDot.style.backgroundColor = 'gray';
         timerDisplay.style.display = 'none';
         timerText.textContent = '00:00';
         titleInput.disabled = false;

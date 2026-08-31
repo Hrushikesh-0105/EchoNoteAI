@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useUser, useAuth } from "@clerk/clerk-react";
+import { ArrowLeft, Copy, Printer } from 'lucide-react';
 import TextToSpeech from '../components/TTS';
 import ReactMarkdown from 'react-markdown';
 import { getSessionSummary } from '../api/sessionsApi';
@@ -37,19 +38,19 @@ function SummaryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen bg-noise flex items-center justify-center">
+        <p className="font-heading font-bold text-xl text-text animate-pulse">Generating your scrapbook...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <p>{error}</p>
+      <div className="min-h-screen bg-noise flex flex-col items-center justify-center gap-4">
+        <div className="card-brutal border-l-8 border-l-primary px-4 py-3">
+          <p className="font-heading font-bold text-text">{error}</p>
         </div>
-        <Link to="/dashboard" className="mt-4 text-blue-500 hover:underline">
+        <Link to="/dashboard" className="font-heading font-bold text-primary hover:underline">
           Return to Dashboard
         </Link>
       </div>
@@ -58,11 +59,11 @@ function SummaryPage() {
 
   if (!summary) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          <p>No summary found for this session.</p>
+      <div className="min-h-screen bg-noise flex flex-col items-center justify-center gap-4">
+        <div className="card-brutal px-4 py-3">
+          <p className="font-heading font-bold text-text">No summary found for this session.</p>
         </div>
-        <Link to="/dashboard" className="mt-4 text-blue-500 hover:underline">
+        <Link to="/dashboard" className="font-heading font-bold text-primary hover:underline">
           Return to Dashboard
         </Link>
       </div>
@@ -70,50 +71,43 @@ function SummaryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-noise py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{summary.title || "Session Summary"}</h1>
-          <Link to="/dashboard" className="text-blue-500 hover:text-blue-700 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-            </svg>
+          <h1 className="font-heading font-extrabold text-3xl text-text">{title || "Session Summary"}</h1>
+          <Link to="/dashboard" className="flex items-center gap-1 font-heading font-bold text-text hover:text-primary transition-colors">
+            <ArrowLeft className="w-5 h-5" strokeWidth={2.5} />
             Back to Dashboard
           </Link>
         </div>
-        
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="border-b border-gray-200 px-6 py-4">
-            <p className="text-sm text-gray-500">
-              Session title: {title}
-            </p>
+
+        <div className="card-brutal relative bg-note overflow-hidden">
+          <div className="washi-tape bg-accent -top-3 left-12 rotate-[-4deg]" />
+
+          <div className="border-b-4 border-text px-6 py-4">
+            <p className="text-sm font-bold text-text/60">Session title: {title}</p>
           </div>
-          
+
           <div className="px-6 py-8">
-            <article className="prose prose-blue lg:prose-lg max-w-none">
+            <article className="prose prose-headings:font-heading max-w-none">
               <ReactMarkdown>{summary}</ReactMarkdown>
-              <TextToSpeech text={summary}/>
             </article>
+            <TextToSpeech text={summary} />
           </div>
-          
-          <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
-            <button 
-              onClick={() => {navigator.clipboard.writeText(summary)}}
-              className="text-blue-500 hover:text-blue-700 flex items-center"
+
+          <div className="border-t-4 border-text px-6 py-4 flex justify-between items-center">
+            <button
+              onClick={() => { navigator.clipboard.writeText(summary) }}
+              className="flex items-center gap-2 font-heading font-bold text-text hover:text-primary transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-              </svg>
+              <Copy className="w-4 h-4" strokeWidth={2.5} />
               Copy to clipboard
             </button>
-            <button 
+            <button
               onClick={() => window.print()}
-              className="text-blue-500 hover:text-blue-700 flex items-center"
+              className="flex items-center gap-2 font-heading font-bold text-text hover:text-primary transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
-              </svg>
+              <Printer className="w-4 h-4" strokeWidth={2.5} />
               Print
             </button>
           </div>

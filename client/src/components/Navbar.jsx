@@ -1,32 +1,37 @@
 import { Link } from 'react-router-dom';
 import { useAuth, UserButton } from "@clerk/clerk-react";
+import { Mic } from 'lucide-react';
 
 export default function Navbar() {
   const { isSignedIn } = useAuth();
 
   return (
-    <nav className="bg-white shadow-lg">
+    <nav className="bg-surface border-b-4 border-text">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            <Link to="/" className="text-xl font-bold text-gray-800">
-              EchoNote
-            </Link>
-          </div>
-          <div className="flex items-center space-x-4">
+        <div className="flex justify-between items-center h-20">
+          <Link to="/" className="flex items-center gap-2 font-heading font-extrabold text-2xl tracking-tight text-text">
+            <Mic className="w-7 h-7" strokeWidth={2.5} />
+            EchoNote
+          </Link>
+          <div className="flex items-center gap-4">
             {!isSignedIn ? (
               <>
-                <Link to="/signin" className="px-4 py-2 text-gray-600 hover:text-gray-800">
+                <Link to="/signin" className="px-4 py-2 font-heading font-bold text-text hover:text-primary transition-colors">
                   Sign In
                 </Link>
-                <Link to="/signup" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                <Link
+                  to="/signup"
+                  className="btn-brutal bg-primary text-text px-5 py-2 rounded-pill font-heading font-bold"
+                >
                   Sign Up
                 </Link>
               </>
             ) : (
               <>
-                
-                <Link to="/dashboard" className="px-4 py-2 text-gray-600 hover:text-gray-800">
+                <Link
+                  to="/dashboard"
+                  className="px-4 py-2 font-heading font-bold text-text hover:text-primary transition-colors"
+                >
                   Dashboard
                 </Link>
                 <UserButton afterSignOutUrl="/" />

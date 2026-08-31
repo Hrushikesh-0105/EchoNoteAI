@@ -18,17 +18,19 @@ EchoNoteAI is your personal AI-powered meeting assistant. It records your online
 
 ## ✨ Demo
 
+> Shows login/signup flow and dashboard view.
+
 ![Login and Dashboard](./assets/website.gif)
 
-> 👆 Shows login/signup flow and dashboard view.
+
+> Demonstrates extension recording and session creation.
 
 ![Extension Working](./assets/extension.gif)
 
-> 👆 Demonstrates extension recording and session creation.
 
-<!-- Optional additional image -->
+> Summary of the meeting/class.
+
 ![Example Summary Page](./assets/summary.png)
-> 👆 Summary of the meeting/class.
 
 ---
 
@@ -36,7 +38,8 @@ EchoNoteAI is your personal AI-powered meeting assistant. It records your online
 
 ### 1. 📝 Sign Up
 - User signs up via the EchoNoteAI **website** (React + Clerk).
-- Auth info is stored in cookies and cleared on logout.
+- Once signed in, the website mints a short-lived token and hands it to the extension
+  (if installed) via `chrome.runtime.sendMessage` — no cookies involved.
 
 ### 2. 🔌 Install the Extension
 - Manually load the extension in Chrome:
@@ -78,47 +81,57 @@ EchoNoteAI is your personal AI-powered meeting assistant. It records your online
 
 ```
 EchoNoteAI/
-├── client/         # React frontend
-├── extension/      # Chrome extension
-├── server/         # Node.js backend
-├── assets/         # Images, GIFs
+├── client/          # React frontend (Vite)
+│   ├── src/
+│   │   ├── api/         # HTTP calls to the server, grouped by resource
+│   │   ├── components/  # Reusable UI (Navbar, TTS, auth-sync components)
+│   │   ├── pages/        # Route-level views (Landing, Dashboard, SummaryPage)
+│   │   └── utils/
+│   └── .env.example
+├── server/           # Node.js/Express backend
+│   ├── routes/        # Path + middleware + controller wiring only
+│   ├── controllers/    # Request/response handling
+│   ├── services/        # Business logic
+│   │   └── external/      # One client per third-party API (Clerk, Gemini, OCR.space)
+│   ├── middlewares/
+│   ├── prompts/         # LLM prompts, as named exports
+│   ├── schemas/
+│   └── .env.example
+├── web_extension/    # MV3 Chrome extension (screen capture → server)
+├── assets/            # Images, GIFs
+├── package.json      # Root workspace — see Quick Start below
 └── README.md
 ```
 
 ---
 
-## 🧪 Local Testing Instructions
+## 🚀 Quick Start
 
-### 1. 🚀 Run the Website Locally
-
-```bash
-cd client
-npm install
-npm run dev
-```
-
-Runs the frontend (React + Tailwind) on `http://localhost:5173`.
-
----
-
-### 2. 🔧 Run the Server
+This repo is an npm workspace — one install, one command, both the website and the
+server come up together.
 
 ```bash
-cd server
-npm install
-npx nodemon server.js
+git clone <this-repo>
+cd EchoNoteAI
+
+cp server/.env.example server/.env   # then fill in the values (see comments in the file)
+cp client/.env.example client/.env   # then fill in the values
+
+npm install   # installs client + server dependencies in one shot
+npm run dev   # runs the website (:5173) and the server (:3000) together
 ```
 
-Make sure MongoDB is running and connected.
+That's it for the website + server. **The browser extension is a separate, manual step**
+— Chrome doesn't allow installing an extension from the command line:
 
----
-
-### 3. 🧩 Load the Extension in Chrome
-
-1. Open Chrome and go to: `chrome://extensions/`
+1. Go to `chrome://extensions/`
 2. Turn on **Developer mode**
-3. Click **Load unpacked**
-4. Select the `web_extension/` folder
+3. Click **Load unpacked**, select the `web_extension/` folder
+4. Copy the extension ID shown on its card into `client/.env`'s `VITE_EXTENSION_ID`,
+   then restart `npm run dev` (Vite only reads `.env` at startup)
+
+See `server/.env.example` and `client/.env.example` for what each variable is and where
+to get it (Clerk, Gemini, OCR.space, MongoDB Atlas).
 
 ---
 
