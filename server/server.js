@@ -1,29 +1,32 @@
-const express = require("express")
+const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-const userRoute = require('./Routes/userRoute');
-const extRoute = require("./Routes/extensionRoute");
-const authRoute = require('./Routes/authRoute')
-const imgOcr = require('./Routes/imageOcrRoute')
-const requireAuth = require('./middlewares/authMiddleware');
+const authRoutes = require('./routes/authRoutes');
+const sessionRoutes = require('./routes/sessionRoutes');
+const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
+const logger = require('./utils/logger');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim());
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'chrome-extension://fcanbnopnhklpjfhpmpgmgpkigdnbleh','chrome-extension://hfdkkflnkbflkdfanmngjkjiadiihhed'],
-  credentials: true
+    origin: allowedOrigins,
+    credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
 
-app.use('/user', userRoute)
-app.use('/extension', extRoute)
-app.use('/auth', authRoute)
-app.use('/screenshot', imgOcr)
+app.use('/api/auth', authRoutes);
+app.use('/api/sessions', sessionRoutes);
 
-mongoose.connect(process.env.MONGODB_URL)
-    .then(() => app.listen(PORT, () => { console.log(`listening on port: ${PORT}...`) }))
-    .catch()
+app.use(notFoundHandler);
+app.use(errorHandler);
 
+mongoose.connect(process.env.MONGODB_URI)
+    .then(() => app.listen(PORT, () => logger.info(`listening on port: ${PORT}...`)))
+    .catch((err) => logger.error('MongoDB connection failed:', err));

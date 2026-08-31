@@ -1,222 +1,115 @@
-import { summarizeData, uploadScreenShot,getSessionId } from './api.js';
+import { uploadScreenShot, getSessionId } from './api.js';
+import { startScreenCapture, stopScreenCapture } from './recording.js';
+import * as ui from './ui.js';
 
-const recordButton = document.getElementById('recordButton');
+function decodeDisplayNameFromToken(token) {
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.firstName || payload.email || 'User';
+    } catch {
+        return 'User';
+    }
+}
 
-recordButton.addEventListener('click', () => {
-    toggleRecording();
-});
+function isAuthError(err) {
+    return err.message === 'NOT_SIGNED_IN' || err.message === 'TOKEN_EXPIRED';
+}
 
-const titleInput = document.getElementById('recordingTitle');
-
-titleInput.addEventListener('input', () => {
-    const title = titleInput.value.trim();
-    recordButton.disabled = title === '';
-});
-
-
-let isRecording = false;
-let userName, userEmail;
+function redirectToSignIn() {
+    window.location.href = '../Authentication/signin.html';
+}
 
 async function initializeDashboard() {
-    const result = await chrome.storage.local.get(['loggedInUserName', 'loggedInUserEmail']);
-    userName = decodeURIComponent(result.loggedInUserName);
-    userEmail = decodeURIComponent(result.loggedInUserEmail);
-    const userData = {
-        name: userName,
-        email: userEmail
-    };
-    document.getElementById('userName').textContent = userData.name;
-    console.log(userData);
+    const { authToken } = await chrome.storage.local.get('authToken');
+    if (!authToken) return redirectToSignIn();
+    ui.setUserDisplayName(decodeDisplayNameFromToken(authToken));
 }
 
 initializeDashboard();
 
-// Timer
+// If the token gets invalidated (server rejects it) mid-session, api.js clears it —
+// bounce back to sign-in rather than leaving a dead dashboard on screen.
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && 'authToken' in changes && !changes.authToken.newValue) {
+        redirectToSignIn();
+    }
+});
+
+let isRecording = false;
+let sessionId = null;
 let timerInterval = null;
 let startTime = null;
 
-// UI references
-const recordIcon = document.getElementById('recordIcon');
-const recordText = document.getElementById('recordText');
-const statusText = document.getElementById('statusText');
-const statusDot = document.querySelector('.status-dot');
-const timerDisplay = document.getElementById('recordingTimer');
-const timerText = document.getElementById('timerText');
+ui.onTitleInput(() => {
+    ui.setRecordButtonEnabled(ui.getTrimmedTitle() !== '');
+});
 
-function updateUi(recording) {
-    if (recording) {
-        recordIcon.textContent = '⏹️';
-        recordText.textContent = 'Stop Recording';
-        statusText.textContent = 'Recording...';
-        statusDot.style.backgroundColor = 'red';
-        timerDisplay.style.display = 'block';
-    } else {
-        recordIcon.textContent = '🔴';
-        recordText.textContent = 'Start Full Screen Recording';
-        statusText.textContent = 'Recording stopped';
-        statusDot.style.backgroundColor = 'gray';
-        timerDisplay.style.display = 'none';
-        timerText.textContent = '00:00';
-    }
-}
-
-function updateTimer() {
-    const elapsedMs = Date.now() - startTime;
-    const totalSeconds = Math.floor(elapsedMs / 1000);
-    const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
-    const seconds = String(totalSeconds % 60).padStart(2, '0');
-    timerText.textContent = `${minutes}:${seconds}`;
-}
-
-function updateTitleField(isRecording){
-    if(isRecording){
-        //disable ediditing
-        titleInput.disabled = true;
-    }
-    else{
-        titleInput.disabled = false;
-        titleInput.value = '';
-        recordButton.disabled = true;
-    }
-}
-
-let screenshotInterval = null;
-let captureStream = null;
-let sessionId=null;
+ui.onRecordButtonClick(() => {
+    toggleRecording();
+});
 
 async function toggleRecording() {
-    const title = titleInput.value.trim();
+    const title = ui.getTrimmedTitle();
     if (!title) {
-        alert("Please enter a valid recording title.");
+        alert('Please enter a valid recording title.');
         return;
     }
 
-    if(!sessionId){
-        //fetch session id using email
-        sessionId = await getSessionId(userEmail, titleInput.value);
-    }
-
-    if (!isRecording && sessionId) {
+    if (!sessionId) {
         try {
-            captureStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-            isRecording = true;
-            startTime = Date.now();
-
-            updateUi(true);
-            updateTitleField(true);
-            updateTimer();
-            timerInterval = setInterval(updateTimer, 1000);
-
-            const video = document.createElement("video");
-            video.srcObject = captureStream;
-            video.muted=true;
-            video.play();
-
-            video.addEventListener('loadedmetadata', () => {
-                // First screenshot after video is ready
-                captureScreenshot(video,userEmail,sessionId);
-                
-                // Start interval for repeated screenshots
-                screenshotInterval = setInterval(() => {
-                    captureScreenshot(video,userEmail,sessionId);
-                }, 5000);
-            });
-
-            // Stop when screen sharing is ended manually
-            captureStream.getVideoTracks()[0].onended = () => {
-                stopRecordingScreenshots();
-            };
-
+            sessionId = await getSessionId(title);
         } catch (err) {
-            console.error("Error accessing display media:", err);
-            alert("Failed to start screen capture.");
+            if (isAuthError(err)) return redirectToSignIn();
+            console.error('Failed to create session:', err);
+            alert('Could not start a session. Please try again.');
+            return;
         }
-
-    } else if(sessionId){
-        stopRecordingScreenshots();
     }
-}
 
-//download the screenshot function
-// function captureScreenshot(videoElement, title) {
-//     const canvas = document.createElement('canvas');
-//     canvas.width = videoElement.videoWidth;
-//     canvas.height = videoElement.videoHeight;
+    if (!sessionId) return;
 
-//     const ctx = canvas.getContext('2d');
-//     ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-//     //drawing the current video frame into canvas
-
-//     canvas.toBlob(blob => {
-//         const url = URL.createObjectURL(blob);
-//         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-//         chrome.downloads.download({
-//             url: url,
-//             filename: `${title.replace(/\s+/g, '_')}_${timestamp}.png`,
-//             saveAs: false
-//         }, () => {
-//             URL.revokeObjectURL(url);
-//         });
-//     }, 'image/png');
-// }
-
-function captureScreenshot(videoElement, userEmail, sessionId) {
-    const canvas = document.createElement('canvas');
-    canvas.width = videoElement.videoWidth;
-    canvas.height = videoElement.videoHeight;
-
-    const ctx = canvas.getContext('2d');
-    // ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-    if (videoElement.readyState >= 2) {
-        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob(blob => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    const base64Image = reader.result.split(',')[1]; // remove data:image/png;base64,
-                    // const timestamp = new Date().toISOString();
-
-                    // Call your custom function
-                    console.log("Session Id before uploading",sessionId);
-                    uploadScreenShot(base64Image,userEmail, sessionId);
-                };
-                if (blob) {
-                    reader.readAsDataURL(blob);
-                } else {
-                    console.error("Blob is null");
-                } // Converts blob to base64
-            },
-        'image/png');
+    if (isRecording) {
+        stopRecording();
     } else {
-        console.warn("Video not ready yet to capture screenshot.");
+        await startRecording();
     }
-
-    
 }
 
+async function startRecording() {
+    try {
+        await startScreenCapture({ onScreenshot: handleScreenshot, onStreamEnded: stopRecording });
+    } catch (err) {
+        console.error('Error accessing display media:', err);
+        alert('Failed to start screen capture.');
+        return;
+    }
 
+    isRecording = true;
+    startTime = Date.now();
+    ui.setRecordingState(true);
+    ui.updateTimerDisplay(0);
+    timerInterval = setInterval(() => ui.updateTimerDisplay(Date.now() - startTime), 1000);
+}
 
-async function stopRecordingScreenshots() {
+function handleScreenshot(base64Image) {
+    uploadScreenShot(base64Image, sessionId).catch((err) => {
+        if (isAuthError(err)) {
+            stopRecording();
+            redirectToSignIn();
+        } else {
+            console.error('Failed to upload screenshot:', err);
+        }
+    });
+}
+
+function stopRecording() {
     isRecording = false;
     clearInterval(timerInterval);
-    clearInterval(screenshotInterval);
+    stopScreenCapture();
+    ui.setRecordingState(false);
 
-    if (captureStream) {
-        captureStream.getTracks().forEach(track => track.stop());
-    }
-
-    updateUi(false);
-    updateTitleField(false);
-
-    // you want the summary to be stored in the db
-    // post
-    // try {
-    //     summarizeData(userEmail, sessionId);
-    //     console.log('Recording session ended successfully');
-    //     sessionId = null;
-    // } catch (error) {
-    //     console.error('Failed to end recording session:', error);
-    //     alert('Error saving recording session');
-    // }
+    // The summary is generated lazily server-side when the session is opened on the
+    // website (sessionController.js's generateSummary), not here — so all that's left
+    // to do on stop is let the next recording start a fresh session.
+    sessionId = null;
 }
-

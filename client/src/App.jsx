@@ -4,8 +4,8 @@ import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import SummaryPage from './pages/SummaryPage';
 import Navbar from './components/Navbar';
-import { SetUserCookie, ClearUserCookie } from './components/cookieFunctions';
-import { CreateOrCheckUser } from './components/CreateorCheckUser'
+import SendTokenToExtension from './components/SendTokenToExtension';
+import SyncUserOnSignIn from './components/SyncUserOnSignIn';
 
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -17,12 +17,9 @@ export default function App() {
           <div className="app min-h-screen bg-gray-50">
             <Navbar />
             <SignedIn>
-              <SetUserCookie />
-              <CreateOrCheckUser />
+              <SendTokenToExtension />
+              <SyncUserOnSignIn />
             </SignedIn>
-            <SignedOut>
-              <ClearUserCookie />
-            </SignedOut>
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route
@@ -52,7 +49,7 @@ export default function App() {
                 }
               />
               <Route
-                path="/signin"
+                path="/signin/*"
                 element={
                   <div className="flex items-center justify-center min-h-screen">
                     <SignIn routing="path" path="/signin" />
@@ -60,7 +57,7 @@ export default function App() {
                 }
               />
               <Route
-                path="/signup"
+                path="/signup/*"
                 element={
                   <div className="flex items-center justify-center min-h-screen">
                     <SignUp routing="path" path="/signup" />

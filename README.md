@@ -43,11 +43,12 @@ EchoNoteAI is your personal AI-powered meeting assistant. It records your online
   - Go to `chrome://extensions/`
   - Enable **Developer Mode**
   - Click **"Load unpacked"**
-  - Select the `extension/` folder
+  - Select the `web_extension/` folder
 
 ### 3. 🎥 Start Recording
 - Click "Record" in the extension.
-- Screenshots are captured every 3 seconds and sent to the server (base64-encoded).
+- Screenshots are captured every 5 seconds (configurable via `SCREENSHOT_INTERVAL_MS` in
+  `web_extension/frontend/config.js`) and sent to the server (base64-encoded).
 - Each session is stored in MongoDB with a unique `sessionId`.
 
 ### 4. 🧠 OCR + AI Summary
@@ -117,7 +118,7 @@ Make sure MongoDB is running and connected.
 1. Open Chrome and go to: `chrome://extensions/`
 2. Turn on **Developer mode**
 3. Click **Load unpacked**
-4. Select the `extension/` folder
+4. Select the `web_extension/` folder
 
 ---
 

@@ -1,16 +1,12 @@
-document.getElementById("signinButton").addEventListener("click", () => {
-  // Open your website where Clerk React handles sign in
-  chrome.tabs.create({ url: "http://localhost:5173/" });
+document.getElementById('signinButton').addEventListener('click', () => {
+  chrome.tabs.create({ url: window.ECHO_CONFIG.WEBSITE_URL });
 });
 
-// Poll every 2 seconds to check if user has logged in
-const intervalId = setInterval(() => {
-  chrome.storage.local.get("clerkSession", (result) => {
-    const session = result.clerkSession;
-
-    if (session && session.userId) {
-      clearInterval(intervalId); // stop polling
-      window.location.href = "../dashBoard/dashBoard.html";
-    }
-  });
-}, 2000);
+// The website hands the extension its token via externally_connectable messaging
+// (see background.js) once the user signs in, from whichever tab they did it in — so
+// react to storage instead of polling a tab we don't control.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.authToken?.newValue) {
+    window.location.href = '../dashBoard/dashBoard.html';
+  }
+});

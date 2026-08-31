@@ -1,6 +1,16 @@
 const mongoose = require('mongoose');
 
-// define the Schemas
+const sessionSchema = new mongoose.Schema({
+    title: String,
+    // True once the raw OCR text has been reduced to a final Gemini summary.
+    summarized: Boolean,
+    date: {
+        type: Date,
+        default: Date.now
+    },
+    summary: { type: String, default: '' }
+});
+
 const userSchema = new mongoose.Schema({
     email: {
         type: String,
@@ -18,34 +28,11 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
-    session: [
-        {
-            title: String,
-            finalSummary: Boolean,
-            date: {
-                type: Date,
-                default: Date.now
-            },
-            summary: String
-        }
-    ]
-}, { 
-    timestamps: true 
+    sessions: [sessionSchema]
+}, {
+    timestamps: true
 });
 
-userSchema.statics.createFromClerk = async function(clerkUser) {
-    return this.findOneAndUpdate(
-        { email: clerkUser.email },
-        {
-            email: clerkUser.email,
-            firstName: clerkUser.firstName,
-        },
-        { upsert: true, new: true }
-    );
-};
+const UserModel = mongoose.model('user', userSchema);
 
-// create models
-const UserModel = mongoose.model("user", userSchema);
-
-// export 
-module.exports = UserModel
+module.exports = UserModel;

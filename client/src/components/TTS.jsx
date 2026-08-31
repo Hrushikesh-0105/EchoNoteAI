@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { markdownToSpeechText } from '../utils/textForSpeech';
 
 function TextToSpeech({ text }) {
   const utteranceRef = useRef(null);
@@ -9,8 +10,8 @@ function TextToSpeech({ text }) {
     if (!text) return;
 
     window.speechSynthesis.cancel(); // stop any previous speech
-    
-    const utterance = new SpeechSynthesisUtterance(text);
+
+    const utterance = new SpeechSynthesisUtterance(markdownToSpeechText(text));
     utterance.lang = "en-US";
     utterance.rate = 1;
     utterance.pitch = 1;

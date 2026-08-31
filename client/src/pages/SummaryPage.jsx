@@ -1,40 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useUser } from "@clerk/clerk-react";
-import  TextToSpeech  from './TTS'
+import { useUser, useAuth } from "@clerk/clerk-react";
+import TextToSpeech from '../components/TTS';
 import ReactMarkdown from 'react-markdown';
-import axios from 'axios';
+import { getSessionSummary } from '../api/sessionsApi';
 
 function SummaryPage() {
   const { sessionId } = useParams();
   const { user } = useUser();
+  const { getToken } = useAuth();
   const [summary, setSummary] = useState(null);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const fetchSummary = useCallback(async () => {
+    if (!sessionId || !user) return;
+
+    try {
+      setLoading(true);
+      const token = await getToken();
+      const data = await getSessionSummary(token, sessionId);
+      setSummary(data.summary);
+      setTitle(data.title);
+    } catch (err) {
+      console.error("Error fetching summary:", err);
+      setError("Failed to load the summary. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId, user, getToken]);
+
   useEffect(() => {
-    const fetchSummary = async () => {
-      if (!sessionId || !user) return;
-      
-      try {
-        setLoading(true);
-        const response = await axios.post(`http://localhost:3000/user/generate-summary/${sessionId}`, {
-          email: user.primaryEmailAddress.emailAddress
-        });
-
-        setSummary(response.data.summary);
-        setTitle(response.data.title)
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching summary:", err);
-        setError("Failed to load the summary. Please try again later.");
-        setLoading(false);
-      }
-    };
-
     fetchSummary();
-  }, [sessionId, user]);
+  }, [fetchSummary]);
 
   if (loading) {
     return (
@@ -99,7 +98,7 @@ function SummaryPage() {
           
           <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
             <button 
-              onClick={() => {navigator.clipboard.writeText(summary.summary)}}
+              onClick={() => {navigator.clipboard.writeText(summary)}}
               className="text-blue-500 hover:text-blue-700 flex items-center"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
