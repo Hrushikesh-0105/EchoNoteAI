@@ -1,5 +1,4 @@
-// All DOM element lookups and updates for the dashboard page live here, so app.js
-// only has to deal with when things happen, not how the page reflects them.
+// All DOM lookups/updates for the dashboard live here, so app.js only deals with when, not how
 
 const recordButton = document.getElementById('recordButton');
 const titleInput = document.getElementById('recordingTitle');
@@ -30,7 +29,7 @@ export function setRecordButtonEnabled(enabled) {
     recordButton.disabled = !enabled;
 }
 
-/** Switches every recording-related UI element between its recording/idle look. */
+// Switches every recording-related UI element between its recording/idle look
 export function setRecordingState(recording) {
     recordButton.classList.toggle('recording', recording);
     statusIndicator.classList.toggle('recording', recording);

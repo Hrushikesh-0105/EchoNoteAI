@@ -3,11 +3,7 @@ const logger = require('../../utils/logger');
 
 const OCR_SPACE_API_URL = process.env.OCR_SPACE_API_URL || 'https://api.ocr.space/parse/image';
 
-/**
- * Runs OCR on a base64-encoded PNG via the OCR.space API.
- * @param {string} base64Image - image bytes, base64-encoded, no data: URI prefix
- * @returns {Promise<string>} the extracted text
- */
+// Runs OCR on a base64-encoded PNG (no data: URI prefix) via the OCR.space API
 async function extractTextFromImage(base64Image) {
     const body = new URLSearchParams();
     body.append('base64Image', `data:image/png;base64,${base64Image}`);

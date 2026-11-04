@@ -1,4 +1,5 @@
 const express = require('express');
+
 const requireClerkAuth = require('../middlewares/requireClerkAuth');
 const attachUserEmailFromClerk = require('../middlewares/attachUserEmailFromClerk');
 const authController = require('../controllers/authController');

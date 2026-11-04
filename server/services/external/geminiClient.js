@@ -5,11 +5,7 @@ const logger = require('../../utils/logger');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
-/**
- * Reduces a session's raw OCR text to a clean Markdown summary via Gemini.
- * @param {string} rawText
- * @returns {Promise<string>} the generated summary
- */
+// Reduces a session's raw OCR text to a clean Markdown summary via Gemini
 async function generateSessionSummary(rawText) {
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     const prompt = buildSessionSummaryPrompt(rawText);

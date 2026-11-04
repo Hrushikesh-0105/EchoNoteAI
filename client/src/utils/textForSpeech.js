@@ -1,5 +1,4 @@
-// Converts a Markdown summary into plain, speakable text so the browser's TTS engine
-// doesn't read out syntax characters (e.g. "hashtag" for #, "dollar" for LaTeX $...$).
+// Converts Markdown to plain speakable text so the TTS engine doesn't read out syntax characters
 export function markdownToSpeechText(markdown) {
     if (!markdown) return '';
 

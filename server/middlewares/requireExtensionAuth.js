@@ -1,11 +1,6 @@
 const { verifyExtensionToken } = require('../services/extensionTokenService');
 
-/**
- * Verifies the browser extension's bearer token (minted by
- * controllers/authController.js#createExtensionToken). Separate from
- * requireClerkAuth because the extension never sees a Clerk session token — only
- * this app-issued, extension-scoped one. Sets req.userEmail on success.
- */
+// Verifies the extension's app-issued bearer token (minted by authController#createExtensionToken); sets req.userEmail
 function requireExtensionAuth(req, res, next) {
     const [scheme, token] = (req.headers.authorization || '').split(' ');
 

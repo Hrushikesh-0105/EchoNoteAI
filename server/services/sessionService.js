@@ -15,12 +15,6 @@ function findSessionOrThrow(user, sessionId) {
     return session;
 }
 
-/**
- * Starts a new recording session for a user.
- * @param {string} email
- * @param {string} title
- * @returns {Promise<import('mongoose').Document>} the created session subdocument
- */
 async function createSession(email, title) {
     const user = await findUserOrThrow(email);
     user.sessions.push({ title, summarized: false, date: new Date() });
@@ -28,31 +22,17 @@ async function createSession(email, title) {
     return user.sessions[user.sessions.length - 1];
 }
 
-/**
- * @param {string} email
- * @returns {Promise<import('mongoose').Document[]>} all sessions for the user
- */
 async function listSessions(email) {
     const user = await findUserOrThrow(email);
     return user.sessions;
 }
 
-/**
- * @param {string} email
- * @param {string} sessionId
- * @returns {Promise<import('mongoose').Document>}
- */
 async function getSession(email, sessionId) {
     const user = await findUserOrThrow(email);
     return findSessionOrThrow(user, sessionId);
 }
 
-/**
- * OCRs a screenshot and appends the extracted text to the session's running transcript.
- * @param {string} email
- * @param {string} sessionId
- * @param {string} base64Image
- */
+// OCRs a screenshot and appends the extracted text to the session's running transcript
 async function appendScreenshotText(email, sessionId, base64Image) {
     const user = await findUserOrThrow(email);
     const session = findSessionOrThrow(user, sessionId);
@@ -62,13 +42,7 @@ async function appendScreenshotText(email, sessionId, base64Image) {
     await user.save();
 }
 
-/**
- * Returns the session's final summary, generating it via Gemini on first request
- * and caching the result (session.summarized) so later requests are free reads.
- * @param {string} email
- * @param {string} sessionId
- * @returns {Promise<{ summary: string, title: string }>}
- */
+// Generates the summary via Gemini once, then caches it — later requests are free reads
 async function getOrGenerateSummary(email, sessionId) {
     const user = await findUserOrThrow(email);
     const session = findSessionOrThrow(user, sessionId);

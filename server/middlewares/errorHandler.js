@@ -1,11 +1,6 @@
 const logger = require('../utils/logger');
 
-/**
- * Single place every thrown/rejected error in the app ends up. Services throw
- * ApiError for expected conditions (404 not found, 400 bad input); anything else
- * (a 500) is logged server-side and given a generic message — never leaked to the
- * client as a raw stack trace.
- */
+// Central error handler: ApiErrors map to their status, anything else logs and returns a generic 500
 function errorHandler(err, req, res, next) {
     const statusCode = err.statusCode || 500;
 

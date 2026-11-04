@@ -2,10 +2,7 @@ import { useEffect } from 'react';
 
 const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID;
 
-// While signed out, tells the extension to drop its stored token — otherwise a
-// sign-out on the website leaves the extension holding a still-valid token (it's a
-// self-contained, independently-signed JWT, not tied to the Clerk session) until it
-// naturally expires. No-ops if the extension isn't installed.
+// Tells the extension to drop its token on sign-out, since the JWT itself can't be revoked server-side
 function ClearTokenFromExtension() {
   useEffect(() => {
     if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) return;

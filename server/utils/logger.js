@@ -1,4 +1,4 @@
-/** Minimal leveled logger so route/service code doesn't call console.* directly. */
+// Minimal leveled logger so route/service code doesn't call console.* directly
 function timestamp() {
     return new Date().toISOString();
 }

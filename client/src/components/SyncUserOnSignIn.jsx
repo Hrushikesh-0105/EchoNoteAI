@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-react';
 import { syncCurrentUser } from '../api/authApi';
 
-/** While signed in, upserts the user's record in our DB from their Clerk profile. */
+// While signed in, upserts the user's record in our DB from their Clerk profile
 function SyncUserOnSignIn() {
     const { user, isSignedIn } = useUser();
     const { getToken } = useAuth();

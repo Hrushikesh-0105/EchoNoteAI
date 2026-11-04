@@ -8,14 +8,7 @@ const clerkAuth = ClerkExpressRequireAuth({
     }
 });
 
-/**
- * Verifies the website's Clerk session token; sets req.auth on success.
- *
- * Wraps ClerkExpressRequireAuth because when there's no Authorization header at all
- * (as opposed to an invalid/expired one), it calls next(new Error('Unauthenticated'))
- * directly instead of going through its own onError option — left alone, that would
- * fall through to the generic error-handling middleware as a 500 instead of a 401.
- */
+// Wraps ClerkExpressRequireAuth so a missing Authorization header 401s instead of falling through as a 500
 function requireClerkAuth(req, res, next) {
     clerkAuth(req, res, (err) => {
         if (err) {

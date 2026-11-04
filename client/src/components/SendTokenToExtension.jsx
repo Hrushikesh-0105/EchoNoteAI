@@ -4,9 +4,7 @@ import { requestExtensionToken } from '../api/authApi';
 
 const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID;
 
-// While signed in, mints a short-lived extension-scoped token and hands it to the
-// browser extension via externally_connectable messaging. No-ops if the extension
-// isn't installed or the browser doesn't support chrome.runtime (e.g. non-Chrome).
+// Hands the extension a scoped auth token via externally_connectable messaging; no-ops if not installed
 function SendTokenToExtension() {
   const { isSignedIn, getToken } = useAuth();
 

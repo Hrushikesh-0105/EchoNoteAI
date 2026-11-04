@@ -1,14 +1,4 @@
-/**
- * Prompt for reducing a session's accumulated raw OCR text (many overlapping,
- * re-OCR'd screenshots of the same whiteboard/slide/document) into one clean summary.
- *
- * Input: `rawText` — the concatenated OCR output for a session (schemas/userSchema.js's
- * session.summary field, pre-finalization).
- * Output: the model is expected to return well-structured Markdown (headings, bullet
- * points). It's explicitly steered away from LaTeX/tables because the result is (a)
- * rendered as plain Markdown with no math support, and (b) read aloud via text-to-speech
- * for visually impaired users — see client/src/utils/textForSpeech.js.
- */
+// Steers Gemini away from LaTeX/tables since the summary is rendered as plain Markdown and read aloud via TTS (client/src/utils/textForSpeech.js)
 function buildSessionSummaryPrompt(rawText) {
     return `The input text below contains many rewritten sentences and redundant information. Go through it carefully and generate a concise and clear summary, removing all repetitions and redundancies. Focus only on the essential points and present them once in a well-structured format: headings, side-headings, paragraphs, bullet points, conclusion.
 

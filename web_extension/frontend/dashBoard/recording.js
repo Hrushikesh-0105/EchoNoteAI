@@ -3,16 +3,11 @@ const SCREENSHOT_INTERVAL_MS = window.ECHO_CONFIG.SCREENSHOT_INTERVAL_MS || 5000
 let captureStream = null;
 let screenshotInterval = null;
 
-/**
- * Starts a screen-share capture and begins periodically snapshotting it.
- * @param {object} handlers
- * @param {(base64Image: string) => void} handlers.onScreenshot - called with each captured frame, base64-encoded PNG
- * @param {() => void} handlers.onStreamEnded - called when the user stops sharing via the browser's own UI
- */
+// Starts a screen-share capture and periodically snapshots it into onScreenshot
 export async function startScreenCapture({ onScreenshot, onStreamEnded }) {
     captureStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
 
-    const video = document.createElement('video');
+    const video = document.createElement('video'); //creating invisible video element
     video.srcObject = captureStream;
     video.muted = true;
     video.play();
@@ -49,7 +44,7 @@ function captureScreenshot(videoElement, onScreenshot) {
     }, 'image/png');
 }
 
-/** Stops the active capture and screenshot interval, if any. */
+// Stops the active capture and screenshot interval, if any
 export function stopScreenCapture() {
     clearInterval(screenshotInterval);
     screenshotInterval = null;

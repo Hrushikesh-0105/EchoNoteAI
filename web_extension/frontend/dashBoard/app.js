@@ -27,8 +27,7 @@ async function initializeDashboard() {
 
 initializeDashboard();
 
-// If the token gets invalidated (server rejects it) mid-session, api.js clears it —
-// bounce back to sign-in rather than leaving a dead dashboard on screen.
+// If the token gets invalidated mid-session, bounce back to sign-in rather than leaving a dead dashboard
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && 'authToken' in changes && !changes.authToken.newValue) {
         redirectToSignIn();
@@ -108,8 +107,6 @@ function stopRecording() {
     stopScreenCapture();
     ui.setRecordingState(false);
 
-    // The summary is generated lazily server-side when the session is opened on the
-    // website (sessionController.js's generateSummary), not here — so all that's left
-    // to do on stop is let the next recording start a fresh session.
+    // Summary generation happens lazily on the website, not here — just clear sessionId for the next recording
     sessionId = null;
 }
