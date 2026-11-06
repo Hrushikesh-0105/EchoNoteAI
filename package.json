@@ -8,10 +8,9 @@
     "server"
   ],
   "scripts": {
-    "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
-    "build": "npm run build -w client"
-  },
-  "devDependencies": {
-    "concurrently": "^9.1.2"
+    "dev": "docker compose --env-file server/.env -f docker-compose.yml -f docker-compose.dev.yml up --build",
+    "build": "npm run build -w client",
+    "dev:down": "docker compose --env-file server/.env -f docker-compose.yml -f docker-compose.dev.yml down",
+    "dev:logs": "docker compose --env-file server/.env -f docker-compose.yml -f docker-compose.dev.yml logs -f"
   }
 }

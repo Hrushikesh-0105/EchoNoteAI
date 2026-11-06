@@ -1,0 +1,53 @@
+# Shared service definitions for development and production.
+# Always run with an override file and server/.env for variables, e.g.:
+#   docker compose --env-file server/.env -f docker-compose.yml -f docker-compose.dev.yml up --build
+# (the root npm scripts do this for you: npm run dev)
+
+name: echonote
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    # Fixed hostname: RabbitMQ names its data directory after the host, so this keeps queues across container re-creates
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-password}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - echonote-net
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    env_file: server/.env
+    environment:
+      PORT: "3000"
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-password}@rabbitmq:5672
+    ports:
+      - "3000:3000"
+    # Starts after rabbitmq's container, not after the broker is ready; the app reconnects until it is
+    depends_on:
+      - rabbitmq
+    networks:
+      - echonote-net
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    # Ports are set per environment (dev: 5173:5173, prod: 5173:80)
+    depends_on:
+      - api
+    networks:
+      - echonote-net
+
+networks:
+  echonote-net:
+    name: echonote-net
+    driver: bridge
+
+volumes:
+  rabbitmq-data:
