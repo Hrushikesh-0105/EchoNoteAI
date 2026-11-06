@@ -44,6 +44,17 @@ async function pushImage(sessionId, image) {
   return result.matchedCount === 1;
 }
 
+// One image of a session (no ownership check: used by the OCR worker); null if the session or image doesn't exist
+async function findImage(sessionId, imageId) {
+  if (!mongoose.isValidObjectId(sessionId) || !mongoose.isValidObjectId(imageId))
+    return null;
+  const session = await SessionModel.findOne(
+    { _id: sessionId, "images._id": imageId },
+    { "images.$": 1 },
+  ).lean();
+  return session?.images?.[0] ?? null;
+}
+
 // Records an OCR outcome on one image, only while it is still processing (makes repeated deliveries harmless);
 // fields: { status: 'completed' | 'failed', ocrText?, error? }. Returns false if nothing was updated.
 async function setImageResult(sessionId, imageId, fields) {
@@ -77,6 +88,7 @@ module.exports = {
   listSessions,
   findOwnedSession,
   pushImage,
+  findImage,
   setImageResult,
   completeSession,
 };

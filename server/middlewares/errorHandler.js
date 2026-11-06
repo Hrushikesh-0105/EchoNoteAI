@@ -1,15 +1,18 @@
 const logger = require('../utils/logger');
+const ApiError = require('../utils/ApiError');
 
-// Central error handler: ApiErrors map to their status, anything else logs and returns a generic 500
+// Central error handler: ApiErrors are deliberate, so their status and message go to the client as-is;
+// anything else is unexpected, so it's logged in full and the client only gets a generic 500
 function errorHandler(err, req, res, next) {
     const statusCode = err.statusCode || 500;
+    const isDeliberate = err instanceof ApiError || statusCode < 500;
 
-    if (statusCode >= 500) {
+    if (!isDeliberate) {
         logger.error(`${req.method} ${req.originalUrl} failed:`, err);
     }
 
     res.status(statusCode).json({
-        error: statusCode >= 500 ? 'Internal server error' : err.message
+        error: isDeliberate ? err.message : 'Internal server error'
     });
 }
 
