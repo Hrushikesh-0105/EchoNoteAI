@@ -1,16 +1,6 @@
 const mongoose = require('mongoose');
 
-const sessionSchema = new mongoose.Schema({
-    title: String,
-    // True once the raw OCR text has been reduced to a final Gemini summary.
-    summarized: Boolean,
-    date: {
-        type: Date,
-        default: Date.now
-    },
-    summary: { type: String, default: '' }
-});
-
+// Sessions live in their own collection (schemas/sessionSchema.js), linked by userId
 const userSchema = new mongoose.Schema({
     email: {
         type: String,
@@ -27,8 +17,7 @@ const userSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
-    },
-    sessions: [sessionSchema]
+    }
 }, {
     timestamps: true
 });

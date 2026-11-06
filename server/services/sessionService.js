@@ -1,65 +1,82 @@
-const UserModel = require('../schemas/userSchema');
-const ApiError = require('../utils/ApiError');
-const { extractTextFromImage } = require('./external/ocrSpaceClient');
-const { generateSessionSummary } = require('./external/geminiClient');
+const mongoose = require("mongoose");
+const SessionModel = require("../schemas/sessionSchema");
+const ApiError = require("../utils/ApiError");
 
-async function findUserOrThrow(email) {
-    const user = await UserModel.findOne({ email });
-    if (!user) throw new ApiError(404, 'User not found');
-    return user;
+// Fields too large to send in session lists
+const LIST_PROJECTION = { images: 0, intervalSummaries: 0, completeSummary: 0 };
+
+// Invalid ids can't match anything, so treat them as "not found" instead of letting a CastError become a 500
+function assertValidId(id, label) {
+  if (!mongoose.isValidObjectId(id))
+    throw new ApiError(404, `${label} not found`);
 }
 
-function findSessionOrThrow(user, sessionId) {
-    const session = user.sessions.id(sessionId);
-    if (!session) throw new ApiError(404, 'Session not found');
-    return session;
+// Starts a new recording session (sessionStatus defaults to in_progress)
+async function createSession(userId, title) {
+  return SessionModel.create({ userId, title });
 }
 
-async function createSession(email, title) {
-    const user = await findUserOrThrow(email);
-    user.sessions.push({ title, summarized: false, date: new Date() });
-    await user.save();
-    return user.sessions[user.sessions.length - 1];
+// The user's sessions, newest first, without images or summaries
+async function listSessions(userId) {
+  return SessionModel.find({ userId }, LIST_PROJECTION)
+    .sort({ startedAt: -1 })
+    .lean();
 }
 
-async function listSessions(email) {
-    const user = await findUserOrThrow(email);
-    return user.sessions;
+// A session owned by userId; throws 404 if it doesn't exist or belongs to someone else
+async function findOwnedSession(userId, sessionId, projection) {
+  assertValidId(sessionId, "Session");
+  const session = await SessionModel.findOne(
+    { _id: sessionId, userId },
+    projection,
+  ).lean();
+  if (!session) throw new ApiError(404, "Session not found");
+  return session;
 }
 
-async function getSession(email, sessionId) {
-    const user = await findUserOrThrow(email);
-    return findSessionOrThrow(user, sessionId);
+// Atomically appends a screenshot to an in-progress session; returns false if the session is missing or already completed
+async function pushImage(sessionId, image) {
+  const result = await SessionModel.updateOne(
+    { _id: sessionId, sessionStatus: "in_progress" },
+    { $push: { images: image }, $set: { lastActivityAt: new Date() } },
+    { runValidators: true },
+  );
+  return result.matchedCount === 1;
 }
 
-// OCRs a screenshot and appends the extracted text to the session's running transcript
-async function appendScreenshotText(email, sessionId, base64Image) {
-    const user = await findUserOrThrow(email);
-    const session = findSessionOrThrow(user, sessionId);
+// Records an OCR outcome on one image, only while it is still processing (makes repeated deliveries harmless);
+// fields: { status: 'completed' | 'failed', ocrText?, error? }. Returns false if nothing was updated.
+async function setImageResult(sessionId, imageId, fields) {
+  const update = {};
+  for (const [key, value] of Object.entries(fields)) {
+    update[`images.$.${key}`] = value;
+  }
 
-    const extractedText = await extractTextFromImage(base64Image);
-    session.summary += extractedText;
-    await user.save();
+  const result = await SessionModel.updateOne(
+    {
+      _id: sessionId,
+      images: { $elemMatch: { _id: imageId, status: "processing" } },
+    },
+    { $set: update },
+    { runValidators: true },
+  );
+  return result.modifiedCount === 1;
 }
 
-// Generates the summary via Gemini once, then caches it — later requests are free reads
-async function getOrGenerateSummary(email, sessionId) {
-    const user = await findUserOrThrow(email);
-    const session = findSessionOrThrow(user, sessionId);
-
-    if (!session.summarized) {
-        session.summary = await generateSessionSummary(session.summary);
-        session.summarized = true;
-        await user.save();
-    }
-
-    return { summary: session.summary, title: session.title };
+// Marks an in-progress session completed; idempotent — returns the updated session, or null if it was already completed
+async function completeSession(sessionId, endReason) {
+  return SessionModel.findOneAndUpdate(
+    { _id: sessionId, sessionStatus: "in_progress" },
+    { $set: { sessionStatus: "completed", endedAt: new Date(), endReason } },
+    { new: true, runValidators: true, projection: LIST_PROJECTION },
+  ).lean();
 }
 
 module.exports = {
-    createSession,
-    listSessions,
-    getSession,
-    appendScreenshotText,
-    getOrGenerateSummary
+  createSession,
+  listSessions,
+  findOwnedSession,
+  pushImage,
+  setImageResult,
+  completeSession,
 };
