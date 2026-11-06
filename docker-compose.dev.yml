@@ -13,6 +13,15 @@ services:
       # Keep the container's packages; don't let the host folder hide them
       - /app/server/node_modules
 
+  worker:
+    build:
+      target: dev
+    # SIGTERM on reload so the worker shuts down gracefully (finishes in-flight jobs)
+    command: ["nodemon", "--legacy-watch", "--signal", "SIGTERM", "worker.js"]
+    volumes:
+      - ./server:/app/server
+      - /app/server/node_modules
+
   client:
     build:
       target: dev

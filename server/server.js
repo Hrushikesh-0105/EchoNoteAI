@@ -8,6 +8,7 @@ const sessionRoutes = require('./routes/sessionRoutes');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
 const logger = require('./utils/logger');
 const requestLogger = require('./middlewares/requestLogger');
+const queue = require('./queue/connection');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -32,3 +33,7 @@ app.use(errorHandler);
 mongoose.connect(process.env.MONGODB_URI)
     .then(() => app.listen(PORT, () => logger.info(`listening on port: ${PORT}...`)))
     .catch((err) => logger.error('MongoDB connection failed:', err));
+
+// The API only publishes jobs. It connects in the background (retrying until RabbitMQ is up) and
+// doesn't block startup; publishing fails with a clear error while disconnected.
+queue.connect().catch((err) => logger.error('RabbitMQ connection failed:', err));

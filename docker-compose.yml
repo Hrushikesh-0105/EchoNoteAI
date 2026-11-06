@@ -34,6 +34,22 @@ services:
     networks:
       - echonote-net
 
+  # Background jobs (OCR, summaries) from RabbitMQ; same image as api, no published ports
+  worker:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    command: ["node", "worker.js"]
+    env_file: server/.env
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-password}@rabbitmq:5672
+    # Exits on fatal startup errors (e.g. MongoDB unreachable); restart and try again
+    restart: on-failure
+    depends_on:
+      - rabbitmq
+    networks:
+      - echonote-net
+
   client:
     build:
       context: .
