@@ -151,3 +151,20 @@ body {
     gap: 6px;
     font-weight: 700;
 }
+
+.time-left {
+    color: var(--color-primary);
+}
+
+.view-session-button {
+    margin-top: 16px;
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 14px;
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+
+.view-session-button[hidden] {
+    display: none;
+}

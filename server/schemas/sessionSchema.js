@@ -20,12 +20,21 @@ const keyImageSchema = new Schema({
     caption: { type: String, default: '' }             // from Gemini: why this screenshot matters
 }, { _id: false });
 
+// An equation referenced from summary text by the placeholder {{id}}. The website shows `latex` (rendered)
+// in place of the placeholder, and text-to-speech reads `spoken` instead. A placeholder on its own line
+// is a displayed (block) equation; inside a sentence it's inline.
+const equationSchema = new Schema({
+    id: { type: String, required: true },              // e.g. "eq1"
+    latex: { type: String, required: true },           // KaTeX-compatible LaTeX, without $ delimiters
+    spoken: { type: String, required: true }           // how to read it aloud, e.g. "x squared plus one"
+}, { _id: false });
+
 // One topic-based section of the session, with boundaries chosen by Gemini
 const intervalSummarySchema = new Schema({
     startTime: { type: Date, required: true },
     endTime: { type: Date, required: true },
     heading: { type: String, required: true },
-    summary: { type: String, required: true },         // Markdown
+    summary: { type: String, required: true },         // Markdown; equations as {{id}} placeholders
     keyImages: [keyImageSchema]                        // 1–3 per interval
 });
 
@@ -50,7 +59,8 @@ const sessionSchema = new Schema({
     summaryGeneratedAt: { type: Date },
     summaryError: { type: String },
     intervalSummaries: [intervalSummarySchema],
-    completeSummary: { type: String, default: '' }     // Markdown summary of the whole session
+    completeSummary: { type: String, default: '' },    // Markdown summary of the whole session; equations as {{id}} placeholders
+    equations: [equationSchema]                        // every equation used in intervalSummaries and completeSummary
 }, { timestamps: true });
 
 sessionSchema.index({ userId: 1, startedAt: -1 });

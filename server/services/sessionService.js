@@ -3,7 +3,12 @@ const SessionModel = require("../schemas/sessionSchema");
 const ApiError = require("../utils/ApiError");
 
 // Fields too large to send in session lists
-const LIST_PROJECTION = { images: 0, intervalSummaries: 0, completeSummary: 0 };
+const LIST_PROJECTION = {
+  images: 0,
+  intervalSummaries: 0,
+  completeSummary: 0,
+  equations: 0,
+};
 
 // Invalid ids can't match anything, so treat them as "not found" instead of letting a CastError become a 500
 function assertValidId(id, label) {
@@ -134,6 +139,7 @@ async function getSummaryState(userId, sessionId) {
         summaryError: 1,
         completeSummary: 1,
         intervalSummaries: 1,
+        equations: 1,
         images: {
           $map: {
             input: "$images",
@@ -264,8 +270,63 @@ async function releaseSummaryClaim(sessionId, error) {
   );
 }
 
+// Everything the summary worker needs, including all images with their OCR text (no ownership check:
+// used by the worker); null if the session doesn't exist
+async function loadSessionForSummary(sessionId) {
+  if (!mongoose.isValidObjectId(sessionId)) return null;
+  return SessionModel.findById(sessionId, {
+    title: 1,
+    startedAt: 1,
+    summaryStatus: 1,
+    images: 1,
+  }).lean();
+}
+
+// Stores a finished summary, but only while the session is still 'generating' (a stale or duplicate
+// job can't overwrite a newer result). Returns true if saved.
+async function saveSummary(
+  sessionId,
+  { completeSummary, intervalSummaries, equations },
+) {
+  const result = await SessionModel.updateOne(
+    { _id: sessionId, summaryStatus: "generating" },
+    {
+      $set: {
+        completeSummary,
+        intervalSummaries,
+        equations,
+        summaryStatus: "completed",
+        summaryGeneratedAt: new Date(),
+      },
+      $unset: { summaryError: "" },
+    },
+    { runValidators: true },
+  );
+  return result.modifiedCount === 1;
+}
+
+// Records that summary generation failed for good (the user can retry from the website)
+async function failSummary(sessionId, error) {
+  await SessionModel.updateOne(
+    { _id: sessionId, summaryStatus: "generating" },
+    { $set: { summaryStatus: "failed", summaryError: error } },
+  );
+}
+
+// Deletes a completed session owned by userId (with its images and summaries, which live inside it).
+// Returns false if nothing was deleted (missing, someone else's, or still recording).
+async function deleteCompletedSession(userId, sessionId) {
+  const result = await SessionModel.deleteOne({
+    _id: sessionId,
+    userId,
+    sessionStatus: "completed",
+  });
+  return result.deletedCount === 1;
+}
+
 module.exports = {
   createSession,
+  deleteCompletedSession,
   listSessions,
   findOwnedSession,
   getSessionDetail,
@@ -279,4 +340,7 @@ module.exports = {
   markSummaryNoText,
   claimSummary,
   releaseSummaryClaim,
+  loadSessionForSummary,
+  saveSummary,
+  failSummary,
 };

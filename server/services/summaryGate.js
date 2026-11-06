@@ -79,4 +79,4 @@ function countImages(images) {
     return counts;
 }
 
-module.exports = { decideSummaryAction, countImages };
+module.exports = { decideSummaryAction };

@@ -25,5 +25,6 @@ router.get('/', requireWebsiteAuth, sessionController.listSessions);
 router.get('/:sessionId', requireWebsiteAuth, sessionController.getSession);
 router.get('/:sessionId/images', requireWebsiteAuth, sessionController.listSessionImages);
 router.post('/:sessionId/summary', requireWebsiteAuth, sessionController.requestSummary);
+router.delete('/:sessionId', requireWebsiteAuth, sessionController.deleteSession);
 
 module.exports = router;

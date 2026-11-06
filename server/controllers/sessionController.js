@@ -6,7 +6,13 @@ const limits = require('../config/sessionLimits');
 const sessionService = require('../services/sessionService');
 const { resolveUserId } = require('../services/userService');
 const { decideSummaryAction } = require('../services/summaryGate');
-const { screenshotFolder, uploadImage, deleteImage } = require('../services/external/cloudinaryClient');
+const {
+    screenshotFolder,
+    sessionTag,
+    uploadImage,
+    deleteImage,
+    deleteSessionImages
+} = require('../services/external/cloudinaryClient');
 const { publishOcrJob, publishSummaryJob } = require('../queue/publisher');
 
 // Reads an integer query parameter, falling back to a default and clamping to [min, max]
@@ -71,7 +77,10 @@ const addScreenshot = expressAsyncHandler(async (req, res) => {
 
     let stored;
     try {
-        stored = await uploadImage(req.file.buffer, { folder: screenshotFolder(userId, sessionId) });
+        stored = await uploadImage(req.file.buffer, {
+            folder: screenshotFolder(userId, sessionId),
+            tags: [sessionTag(sessionId)]
+        });
     } catch (err) {
         logger.error(`Screenshot upload for session ${sessionId} failed:`, err.message);
         throw new ApiError(502, 'Could not store the screenshot; try again', 'UPLOAD_FAILED');
@@ -184,14 +193,60 @@ const requestSummary = expressAsyncHandler(async (req, res) => {
 
     const body = { ...response.body, title: session.title };
     if (body.state === 'completed') {
+        // Summary text holds {{id}} placeholders: show `latex` for each, and read `spoken` aloud
         body.completeSummary = session.completeSummary;
         body.intervalSummaries = session.intervalSummaries;
+        body.equations = session.equations || [];
     }
     res.status(response.status).json(body);
 });
 
+// DELETE /api/sessions/:sessionId — deletes a finished session: its screenshots in Cloudinary, then the
+// session itself (images, OCR text and summaries are stored inside it). Refused while still recording.
+// A recording that went quiet (popup closed without stopping) or ran past its time limit is closed first.
+// Website-authed.
+const deleteSession = expressAsyncHandler(async (req, res) => {
+    const userId = await resolveUserId(req.userEmail);
+    const { sessionId } = req.params;
+    const session = await sessionService.findOwnedSession(userId, sessionId, {
+        sessionStatus: 1,
+        startedAt: 1,
+        lastActivityAt: 1
+    });
+
+    if (session.sessionStatus === 'in_progress') {
+        const now = Date.now();
+        const quietFor = now - new Date(session.lastActivityAt || session.startedAt).getTime();
+        const runningFor = now - new Date(session.startedAt).getTime();
+        if (runningFor > limits.maxSessionDurationMs + limits.durationGraceMs) {
+            await sessionService.completeSession(sessionId, 'time_limit');
+        } else if (quietFor > limits.staleSessionMs) {
+            await sessionService.completeSession(sessionId, 'auto_closed');
+        } else {
+            throw new ApiError(409, 'This session is still recording. Stop the recording before deleting it.', 'SESSION_IN_PROGRESS');
+        }
+    }
+
+    // Screenshots first: if this fails, the session stays and the user can try again (no orphaned public images)
+    let imagesDeleted;
+    try {
+        imagesDeleted = await deleteSessionImages(sessionId, screenshotFolder(userId, sessionId));
+    } catch (err) {
+        logger.error(`Deleting screenshots of session ${sessionId} failed:`, err.error?.message || err.message);
+        throw new ApiError(502, 'Could not delete the screenshots; try again', 'DELETE_FAILED');
+    }
+
+    const deleted = await sessionService.deleteCompletedSession(userId, sessionId);
+    if (!deleted) throw new ApiError(404, 'Session not found'); // deleted by a concurrent request
+
+    // Queued OCR / summary jobs for this session find nothing and are skipped by the worker
+    logger.info(`Session ${sessionId} deleted (${imagesDeleted} screenshot(s) removed from Cloudinary)`);
+    res.status(200).json({ deleted: true, imagesDeleted });
+});
+
 module.exports = {
     createSession,
+    deleteSession,
     addScreenshot,
     stopSession,
     listSessions,

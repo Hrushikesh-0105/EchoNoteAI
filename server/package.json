@@ -14,7 +14,7 @@
   "license": "ISC",
   "dependencies": {
     "@clerk/clerk-sdk-node": "^4.13.23",
-    "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^3.0.0",
     "amqplib": "^2.2.1",
     "axios": "^1.9.0",
     "cloudinary": "^2.11.0",

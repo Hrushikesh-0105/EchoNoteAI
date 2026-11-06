@@ -1,7 +1,8 @@
 # Shared service definitions for development and production.
-# Always run with an override file and server/.env for variables, e.g.:
-#   docker compose --env-file server/.env -f docker-compose.yml -f docker-compose.dev.yml up --build
-# (the root npm scripts do this for you: npm run dev)
+# Configuration comes from .env in this folder (copy .env.example). Compose reads it
+# automatically for the ${...} values below; the api and worker also load all of it.
+# Run with an override file, e.g. (the root npm scripts do this for you: npm run dev):
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 name: echonote
 
@@ -22,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
-    env_file: server/.env
+    env_file: .env
     environment:
       PORT: "3000"
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-password}@rabbitmq:5672
@@ -40,7 +41,7 @@ services:
       context: .
       dockerfile: server/Dockerfile
     command: ["node", "worker.js"]
-    env_file: server/.env
+    env_file: .env
     environment:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-password}@rabbitmq:5672
     # Exits on fatal startup errors (e.g. MongoDB unreachable); restart and try again
@@ -54,6 +55,11 @@ services:
     build:
       context: .
       dockerfile: client/Dockerfile
+    # Only the website settings, never the server secrets (Vite exposes VITE_* to the browser)
+    environment:
+      VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
+      VITE_EXTENSION_ID: ${VITE_EXTENSION_ID}
     # Ports are set per environment (dev: 5173:5173, prod: 5173:80)
     depends_on:
       - api

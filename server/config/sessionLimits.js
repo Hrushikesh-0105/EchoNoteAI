@@ -1,4 +1,4 @@
-// Session lifecycle and summary limits, read once from the environment (see server/.env.example)
+// Session lifecycle and summary limits, read once from the environment (see .env.example at the repo root)
 
 function numberFromEnv(name, fallback) {
     const value = Number(process.env[name]);

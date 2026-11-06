@@ -1,6 +1,7 @@
 // Background worker: consumes RabbitMQ jobs (OCR per screenshot, summary per session).
 // Runs as its own container from the same image as the API: `node worker.js`.
-require('dotenv').config(); // first: some modules read settings when they're loaded
+// First: some modules read settings when they're loaded. Repo-root .env when run outside Docker.
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
 
 const logger = require('./utils/logger');

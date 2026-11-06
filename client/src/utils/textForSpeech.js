@@ -9,7 +9,7 @@ export function markdownToSpeechText(markdown) {
         .replace(/\$([^$]+)\$/g, '$1')            // inline math delimiters
         .replace(/\\[a-zA-Z]+\{([^}]*)\}/g, '$1') // \text{...}, \frac{...}{...}, etc.
         .replace(/\\[a-zA-Z]+/g, ' ')             // remaining LaTeX commands like \cup
-        .replace(/^#{1,6}\s+/gm, '')              // heading markers
+        .replace(/^#{1,6}\s+(.*?)[.:!?]?\s*$/gm, '$1.') // headings: drop markers, end with a pause
         .replace(/^-{3,}\s*$/gm, ' ')             // horizontal rules
         .replace(/\*\*([^*]+)\*\*/g, '$1')        // bold
         .replace(/\*([^*]+)\*/g, '$1')            // italic

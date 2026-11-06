@@ -1,24 +1,36 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, CalendarDays } from 'lucide-react';
+import { ArrowRight, CalendarDays, Clock, Image } from 'lucide-react';
 import { listSessions } from '../api/sessionsApi';
+import SessionStatusBadge from '../components/SessionStatusBadge';
+import DeleteSessionButton from '../components/DeleteSessionButton';
+import { formatDuration, sessionDuration } from '../utils/formatTime';
 
 function Dashboard() {
   const { isLoaded, isSignedIn, user } = useUser();
   const { getToken } = useAuth();
   const [sessions, setSessions] = useState([]);
+  const [nextBefore, setNextBefore] = useState(null); // cursor for the next (older) page, null when there's none
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  const fetchSessions = useCallback(async () => {
+  const fetchSessions = useCallback(async (before) => {
+    setLoading(true);
     try {
       const token = await getToken();
-      const data = await listSessions(token);
-      setSessions(data.sessions);
+      const data = await listSessions(token, { before });
+      setSessions((previous) => (before ? [...previous, ...data.sessions] : data.sessions));
+      setNextBefore(data.nextBefore);
+      setError(null);
     } catch (err) {
       console.error('Error fetching sessions:', err);
       setError('Failed to load your sessions. Please try again later.');
+    } finally {
+      setLoading(false);
+      setLoaded(true);
     }
   }, [getToken]);
 
@@ -27,6 +39,10 @@ function Dashboard() {
       fetchSessions();
     }
   }, [isSignedIn, user, fetchSessions]);
+
+  const handleSessionDeleted = (sessionId) => {
+    setSessions((previous) => previous.filter((session) => session._id !== sessionId));
+  };
 
   const handleSessionClick = (sessionId) => {
     navigate(`/summary/${sessionId}`);
@@ -47,7 +63,7 @@ function Dashboard() {
           </div>
         )}
 
-        {sessions.length === 0 ? (
+        {loaded && sessions.length === 0 && !error ? (
           <div className="card-brutal text-center py-16">
             <p className="font-heading font-bold text-lg text-text">You don't have any sessions yet.</p>
           </div>
@@ -62,20 +78,41 @@ function Dashboard() {
               >
                 <div className="washi-tape bg-accent -top-3 left-8 rotate-[-4deg]" />
                 <h3 className="font-heading font-bold text-lg text-text mb-2">{session.title}</h3>
-                <p className="flex items-center gap-1.5 text-sm text-text/60">
-                  <CalendarDays className="w-4 h-4" strokeWidth={2.5} />
-                  {new Date(session.date).toLocaleDateString()}
-                </p>
-                <div className="mt-4 flex justify-between items-center">
-                  <span
-                    className={`px-3 py-1 text-xs font-bold rounded-pill border-2 border-text ${session.summarized ? 'bg-accent text-surface' : 'bg-muted text-text'}`}
-                  >
-                    {session.summarized ? 'Ready' : 'Processing'}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-text/60">
+                  <span className="flex items-center gap-1.5">
+                    <CalendarDays className="w-4 h-4" strokeWidth={2.5} />
+                    {new Date(session.startedAt).toLocaleDateString()}
                   </span>
-                  <ArrowRight className="w-5 h-5 text-primary" strokeWidth={2.5} />
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4" strokeWidth={2.5} />
+                    {formatDuration(sessionDuration(session))}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Image className="w-4 h-4" strokeWidth={2.5} />
+                    {session.imageCount} screenshot{session.imageCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div className="mt-4 flex justify-between items-center">
+                  <SessionStatusBadge session={session} />
+                  <div className="flex items-center gap-2">
+                    <DeleteSessionButton session={session} onDeleted={handleSessionDeleted} compact />
+                    <ArrowRight className="w-5 h-5 text-primary" strokeWidth={2.5} />
+                  </div>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {nextBefore && (
+          <div className="mt-10 text-center">
+            <button
+              onClick={() => fetchSessions(nextBefore)}
+              disabled={loading}
+              className="btn-brutal bg-surface text-text px-6 py-2 rounded-pill font-heading font-bold"
+            >
+              {loading ? 'Loading…' : 'Load more'}
+            </button>
           </div>
         )}
       </div>
