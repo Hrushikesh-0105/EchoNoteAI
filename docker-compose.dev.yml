@@ -1,0 +1,34 @@
+# Development overrides: source bind mounts with live reload, RabbitMQ management UI on localhost only.
+
+services:
+  rabbitmq:
+    ports:
+      - "127.0.0.1:15672:15672"
+
+  api:
+    build:
+      target: dev
+    volumes:
+      - ./server:/app/server
+      # Keep the container's packages; don't let the host folder hide them
+      - /app/server/node_modules
+
+  worker:
+    build:
+      target: dev
+    # SIGTERM on reload so the worker shuts down gracefully (finishes in-flight jobs)
+    command: ["nodemon", "--legacy-watch", "--signal", "SIGTERM", "worker.js"]
+    volumes:
+      - ./server:/app/server
+      - /app/server/node_modules
+
+  client:
+    build:
+      target: dev
+    environment:
+      VITE_USE_POLLING: "true"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app/client
+      - /app/client/node_modules

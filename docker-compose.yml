@@ -1,0 +1,75 @@
+# Shared service definitions for development and production.
+# Configuration comes from .env in this folder (copy .env.example). Compose reads it
+# automatically for the ${...} values below; the api and worker also load all of it.
+# Run with an override file, e.g. (the root npm scripts do this for you: npm run dev):
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+name: echonote
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    # Fixed hostname: RabbitMQ names its data directory after the host, so this keeps queues across container re-creates
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-password}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - echonote-net
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    env_file: .env
+    environment:
+      PORT: "3000"
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-password}@rabbitmq:5672
+    ports:
+      - "3000:3000"
+    # Starts after rabbitmq's container, not after the broker is ready; the app reconnects until it is
+    depends_on:
+      - rabbitmq
+    networks:
+      - echonote-net
+
+  # Background jobs (OCR, summaries) from RabbitMQ; same image as api, no published ports
+  worker:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    command: ["node", "worker.js"]
+    env_file: .env
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-password}@rabbitmq:5672
+    # Exits on fatal startup errors (e.g. MongoDB unreachable); restart and try again
+    restart: on-failure
+    depends_on:
+      - rabbitmq
+    networks:
+      - echonote-net
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    # Only the website settings, never the server secrets (Vite exposes VITE_* to the browser)
+    environment:
+      VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
+      VITE_EXTENSION_ID: ${VITE_EXTENSION_ID}
+    # Ports are set per environment (dev: 5173:5173, prod: 5173:80)
+    depends_on:
+      - api
+    networks:
+      - echonote-net
+
+networks:
+  echonote-net:
+    name: echonote-net
+    driver: bridge
+
+volumes:
+  rabbitmq-data:

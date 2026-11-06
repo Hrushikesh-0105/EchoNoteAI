@@ -1,0 +1,16 @@
+{
+  "name": "echo-note",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EchoNoteAI — AI meeting summarizer (client + server). See README.md for setup.",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
+    "build": "npm run build -w client",
+    "dev:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
+    "dev:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f"
+  }
+}

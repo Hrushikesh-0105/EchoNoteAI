@@ -1,222 +1,189 @@
-import { summarizeData, uploadScreenShot,getSessionId } from './api.js';
+import { createSession, uploadScreenshot, stopSession } from './api.js';
+import { requestScreenStream, startScreenshots, stopScreenCapture } from './recording.js';
+import * as ui from './ui.js';
 
-const recordButton = document.getElementById('recordButton');
+const DEFAULT_MAX_DURATION_MS = 60 * 60_000; // the server sends the real limit when a session starts
+const UPLOAD_DRAIN_TIMEOUT_MS = 15_000;      // how long stopping waits for screenshots still uploading
 
-recordButton.addEventListener('click', () => {
-    toggleRecording();
-});
+function decodeDisplayNameFromToken(token) {
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.firstName || payload.email || 'User';
+    } catch {
+        return 'User';
+    }
+}
 
-const titleInput = document.getElementById('recordingTitle');
+function isAuthError(err) {
+    return err.message === 'NOT_SIGNED_IN' || err.message === 'TOKEN_EXPIRED';
+}
 
-titleInput.addEventListener('input', () => {
-    const title = titleInput.value.trim();
-    recordButton.disabled = title === '';
-});
+function redirectToSignIn() {
+    window.location.href = '../Authentication/signin.html';
+}
 
+function describeDuration(ms) {
+    const minutes = Math.round(ms / 60_000);
+    if (minutes % 60 === 0) {
+        const hours = minutes / 60;
+        return `${hours} hour${hours === 1 ? '' : 's'}`;
+    }
+    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+}
 
-let isRecording = false;
-let userName, userEmail;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function initializeDashboard() {
-    const result = await chrome.storage.local.get(['loggedInUserName', 'loggedInUserEmail']);
-    userName = decodeURIComponent(result.loggedInUserName);
-    userEmail = decodeURIComponent(result.loggedInUserEmail);
-    const userData = {
-        name: userName,
-        email: userEmail
-    };
-    document.getElementById('userName').textContent = userData.name;
-    console.log(userData);
+    const { authToken } = await chrome.storage.local.get('authToken');
+    if (!authToken) return redirectToSignIn();
+    ui.setUserDisplayName(decodeDisplayNameFromToken(authToken));
 }
 
 initializeDashboard();
 
-// Timer
-let timerInterval = null;
+// If the token gets invalidated mid-session, bounce back to sign-in rather than leaving a dead dashboard
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && 'authToken' in changes && !changes.authToken.newValue) {
+        redirectToSignIn();
+    }
+});
+
+// 'idle' → 'starting' → 'recording' → 'stopping' → 'idle'
+let state = 'idle';
+let sessionId = null;
+let maxDurationMs = DEFAULT_MAX_DURATION_MS;
 let startTime = null;
+let timerInterval = null;
+let lastSessionId = null;          // for the "view on website" link after stopping
+const pendingUploads = new Set();  // uploads still in flight, awaited before telling the server we stopped
 
-// UI references
-const recordIcon = document.getElementById('recordIcon');
-const recordText = document.getElementById('recordText');
-const statusText = document.getElementById('statusText');
-const statusDot = document.querySelector('.status-dot');
-const timerDisplay = document.getElementById('recordingTimer');
-const timerText = document.getElementById('timerText');
+ui.onTitleInput(() => {
+    if (state === 'idle') ui.setRecordButtonEnabled(ui.getTrimmedTitle() !== '');
+});
 
-function updateUi(recording) {
-    if (recording) {
-        recordIcon.textContent = '⏹️';
-        recordText.textContent = 'Stop Recording';
-        statusText.textContent = 'Recording...';
-        statusDot.style.backgroundColor = 'red';
-        timerDisplay.style.display = 'block';
-    } else {
-        recordIcon.textContent = '🔴';
-        recordText.textContent = 'Start Full Screen Recording';
-        statusText.textContent = 'Recording stopped';
-        statusDot.style.backgroundColor = 'gray';
-        timerDisplay.style.display = 'none';
-        timerText.textContent = '00:00';
-    }
-}
+ui.onRecordButtonClick(() => {
+    if (state === 'idle') startRecording();
+    else if (state === 'recording') stopRecording({ reason: 'user' });
+});
 
-function updateTimer() {
-    const elapsedMs = Date.now() - startTime;
-    const totalSeconds = Math.floor(elapsedMs / 1000);
-    const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
-    const seconds = String(totalSeconds % 60).padStart(2, '0');
-    timerText.textContent = `${minutes}:${seconds}`;
-}
+ui.onViewSessionClick(() => {
+    if (lastSessionId) chrome.tabs.create({ url: `${window.ECHO_CONFIG.WEBSITE_URL}summary/${lastSessionId}` });
+});
 
-function updateTitleField(isRecording){
-    if(isRecording){
-        //disable ediditing
-        titleInput.disabled = true;
-    }
-    else{
-        titleInput.disabled = false;
-        titleInput.value = '';
-        recordButton.disabled = true;
-    }
-}
+async function startRecording() {
+    const title = ui.getTrimmedTitle();
+    if (!title) return;
+    state = 'starting';
+    ui.setStarting();
 
-let screenshotInterval = null;
-let captureStream = null;
-let sessionId=null;
-
-async function toggleRecording() {
-    const title = titleInput.value.trim();
-    if (!title) {
-        alert("Please enter a valid recording title.");
+    // 1. Ask what to share first, so cancelling the picker never leaves an empty session behind
+    let stream;
+    try {
+        stream = await requestScreenStream();
+    } catch (err) {
+        state = 'idle';
+        const cancelled = err.name === 'NotAllowedError';
+        if (!cancelled) console.error('Error accessing display media:', err);
+        ui.setIdle({ message: cancelled ? 'Screen sharing was cancelled' : 'Could not start screen capture' });
         return;
     }
 
-    if(!sessionId){
-        //fetch session id using email
-        sessionId = await getSessionId(userEmail, titleInput.value);
+    // 2. Then start the session on the server
+    try {
+        const session = await createSession(title);
+        sessionId = session.sessionId;
+        maxDurationMs = session.maxDurationMs || DEFAULT_MAX_DURATION_MS;
+    } catch (err) {
+        stream.getTracks().forEach((track) => track.stop());
+        state = 'idle';
+        if (isAuthError(err)) return redirectToSignIn();
+        console.error('Failed to create session:', err);
+        ui.setIdle({ message: 'Could not start a session. Please try again.' });
+        return;
     }
 
-    if (!isRecording && sessionId) {
-        try {
-            captureStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-            isRecording = true;
-            startTime = Date.now();
-
-            updateUi(true);
-            updateTitleField(true);
-            updateTimer();
-            timerInterval = setInterval(updateTimer, 1000);
-
-            const video = document.createElement("video");
-            video.srcObject = captureStream;
-            video.muted=true;
-            video.play();
-
-            video.addEventListener('loadedmetadata', () => {
-                // First screenshot after video is ready
-                captureScreenshot(video,userEmail,sessionId);
-                
-                // Start interval for repeated screenshots
-                screenshotInterval = setInterval(() => {
-                    captureScreenshot(video,userEmail,sessionId);
-                }, 5000);
-            });
-
-            // Stop when screen sharing is ended manually
-            captureStream.getVideoTracks()[0].onended = () => {
-                stopRecordingScreenshots();
-            };
-
-        } catch (err) {
-            console.error("Error accessing display media:", err);
-            alert("Failed to start screen capture.");
-        }
-
-    } else if(sessionId){
-        stopRecordingScreenshots();
+    // 3. Start taking screenshots
+    try {
+        await startScreenshots(stream, {
+            onScreenshot: handleScreenshot,
+            onStreamEnded: () => stopRecording({ reason: 'stream_ended' })
+        });
+    } catch (err) {
+        console.error('Failed to start screenshots:', err);
+        stopScreenCapture();
+        stopSession(sessionId).catch(() => {}); // the session is empty; close it
+        sessionId = null;
+        state = 'idle';
+        ui.setIdle({ message: 'Could not start screen capture' });
+        return;
     }
+
+    state = 'recording';
+    startTime = Date.now();
+    ui.setRecording();
+    timerInterval = setInterval(tick, 1000);
 }
 
-//download the screenshot function
-// function captureScreenshot(videoElement, title) {
-//     const canvas = document.createElement('canvas');
-//     canvas.width = videoElement.videoWidth;
-//     canvas.height = videoElement.videoHeight;
-
-//     const ctx = canvas.getContext('2d');
-//     ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-//     //drawing the current video frame into canvas
-
-//     canvas.toBlob(blob => {
-//         const url = URL.createObjectURL(blob);
-//         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-//         chrome.downloads.download({
-//             url: url,
-//             filename: `${title.replace(/\s+/g, '_')}_${timestamp}.png`,
-//             saveAs: false
-//         }, () => {
-//             URL.revokeObjectURL(url);
-//         });
-//     }, 'image/png');
-// }
-
-function captureScreenshot(videoElement, userEmail, sessionId) {
-    const canvas = document.createElement('canvas');
-    canvas.width = videoElement.videoWidth;
-    canvas.height = videoElement.videoHeight;
-
-    const ctx = canvas.getContext('2d');
-    // ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-    if (videoElement.readyState >= 2) {
-        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob(blob => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    const base64Image = reader.result.split(',')[1]; // remove data:image/png;base64,
-                    // const timestamp = new Date().toISOString();
-
-                    // Call your custom function
-                    console.log("Session Id before uploading",sessionId);
-                    uploadScreenShot(base64Image,userEmail, sessionId);
-                };
-                if (blob) {
-                    reader.readAsDataURL(blob);
-                } else {
-                    console.error("Blob is null");
-                } // Converts blob to base64
-            },
-        'image/png');
-    } else {
-        console.warn("Video not ready yet to capture screenshot.");
-    }
-
-    
+// Updates the timer and stops at the session's time limit
+function tick() {
+    const elapsed = Date.now() - startTime;
+    ui.updateTimerDisplay(elapsed, maxDurationMs - elapsed);
+    if (elapsed >= maxDurationMs) stopRecording({ reason: 'time_limit' });
 }
 
+function handleScreenshot(blob, capturedAt) {
+    if (state !== 'recording' || !sessionId) return;
 
+    const upload = uploadScreenshot(sessionId, blob, capturedAt)
+        .catch((err) => {
+            if (isAuthError(err)) {
+                // The token was removed; the storage listener redirects to sign-in
+                stopRecording({ reason: 'signed_out', serverAlreadyClosed: true });
+            } else if (err.message === 'SESSION_CLOSED') {
+                // The server ended the session (time limit, or it was closed elsewhere); don't call stop again
+                const reason = err.code === 'SESSION_TIME_LIMIT' ? 'time_limit' : 'closed';
+                stopRecording({ reason, serverAlreadyClosed: true });
+            } else {
+                // One lost screenshot shouldn't end the recording
+                console.error('Failed to upload screenshot:', err.status, err.code || err.message);
+            }
+        })
+        .finally(() => pendingUploads.delete(upload));
+    pendingUploads.add(upload);
+}
 
-async function stopRecordingScreenshots() {
-    isRecording = false;
+// Stops capturing, waits for uploads still in flight, then tells the server the session ended.
+// If this page closes before that (e.g. the popup is dismissed), the server auto-closes the session after
+// a minute without screenshots.
+async function stopRecording({ reason, serverAlreadyClosed = false }) {
+    if (state !== 'recording') return;
+    state = 'stopping';
     clearInterval(timerInterval);
-    clearInterval(screenshotInterval);
+    stopScreenCapture();
+    ui.setStopping();
 
-    if (captureStream) {
-        captureStream.getTracks().forEach(track => track.stop());
+    await Promise.race([Promise.allSettled([...pendingUploads]), sleep(UPLOAD_DRAIN_TIMEOUT_MS)]);
+
+    const endedSessionId = sessionId;
+    if (!serverAlreadyClosed) {
+        try {
+            await stopSession(endedSessionId);
+        } catch (err) {
+            // Not fatal: the server auto-closes sessions that stop receiving screenshots
+            if (!isAuthError(err)) console.error('Failed to stop session:', err.status, err.code || err.message);
+        }
     }
 
-    updateUi(false);
-    updateTitleField(false);
+    sessionId = null;
+    lastSessionId = endedSessionId;
+    state = 'idle';
 
-    // you want the summary to be stored in the db
-    // post
-    // try {
-    //     summarizeData(userEmail, sessionId);
-    //     console.log('Recording session ended successfully');
-    //     sessionId = null;
-    // } catch (error) {
-    //     console.error('Failed to end recording session:', error);
-    //     alert('Error saving recording session');
-    // }
+    const messages = {
+        user: 'Recording saved',
+        stream_ended: 'Screen sharing ended. Recording saved',
+        time_limit: `Time limit reached (${describeDuration(maxDurationMs)}). Recording saved`,
+        closed: 'Session ended',
+        signed_out: 'Signed out'
+    };
+    ui.setIdle({ message: messages[reason] || 'Recording saved', canViewSession: reason !== 'signed_out' });
 }
-

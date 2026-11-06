@@ -1,28 +1,47 @@
-import { useState, useEffect } from 'react';
-import { useUser } from "@clerk/clerk-react";
+import { useState, useEffect, useCallback } from 'react';
+import { useUser, useAuth } from "@clerk/clerk-react";
 import { useNavigate } from 'react-router-dom';
-import { SetUserCookie } from '../components/cookieFunctions';
+import { ArrowRight, CalendarDays, Clock, Image } from 'lucide-react';
+import { listSessions } from '../api/sessionsApi';
+import SessionStatusBadge from '../components/SessionStatusBadge';
+import DeleteSessionButton from '../components/DeleteSessionButton';
+import { formatDuration, sessionDuration } from '../utils/formatTime';
 
 function Dashboard() {
   const { isLoaded, isSignedIn, user } = useUser();
+  const { getToken } = useAuth();
   const [sessions, setSessions] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [nextBefore, setNextBefore] = useState(null); // cursor for the next (older) page, null when there's none
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  const fetchSessions = useCallback(async (before) => {
+    setLoading(true);
+    try {
+      const token = await getToken();
+      const data = await listSessions(token, { before });
+      setSessions((previous) => (before ? [...previous, ...data.sessions] : data.sessions));
+      setNextBefore(data.nextBefore);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching sessions:', err);
+      setError('Failed to load your sessions. Please try again later.');
+    } finally {
+      setLoading(false);
+      setLoaded(true);
+    }
+  }, [getToken]);
 
   useEffect(() => {
     if (isSignedIn && user) {
       fetchSessions();
     }
-  }, [isSignedIn, user]);
+  }, [isSignedIn, user, fetchSessions]);
 
-  const fetchSessions = async () => {
-    try {
-      const response = await fetch(`http://localhost:3000/user/sessions/${user.primaryEmailAddress.emailAddress}`);
-      const data = await response.json();
-      setSessions(data.sessions);
-    } catch (error) {
-      console.error('Error fetching sessions:', error);
-    }
+  const handleSessionDeleted = (sessionId) => {
+    setSessions((previous) => previous.filter((session) => session._id !== sessionId));
   };
 
   const handleSessionClick = (sessionId) => {
@@ -30,50 +49,73 @@ function Dashboard() {
   };
 
   if (!isLoaded || !isSignedIn) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return <div className="flex items-center justify-center min-h-screen font-heading font-bold text-text">Loading...</div>;
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <SetUserCookie />
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Your Sessions</h1>
-      
-      {sessions.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
-          <p className="text-gray-500 text-lg">You don't have any sessions yet.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sessions.map((session) => (
-            <div
-              key={session._id}
-              onClick={() => handleSessionClick(session._id)}
-              className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer border border-gray-100"
-            >
-              <h3 className="text-lg font-semibold mb-2">{session.title}</h3>
-              <p className="text-gray-500 text-sm">
-                {new Date(session.date).toLocaleDateString()}
-              </p>
-              <div className="mt-4 flex justify-between items-center">
-                <span className={`px-2 py-1 text-xs rounded-full ${session.finalSummary ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                  {session.finalSummary ? 'Ready' : 'Processing'}
-                </span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="min-h-screen bg-noise">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h1 className="font-heading font-extrabold text-3xl text-text mb-8">Your Sessions</h1>
 
-      {isLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-lg">
-            Generating summary...
+        {error && (
+          <div className="card-brutal border-l-8 border-l-primary mb-6 px-4 py-3">
+            <p className="font-heading font-bold text-text">{error}</p>
           </div>
-        </div>
-      )}
+        )}
+
+        {loaded && sessions.length === 0 && !error ? (
+          <div className="card-brutal text-center py-16">
+            <p className="font-heading font-bold text-lg text-text">You don't have any sessions yet.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {sessions.map((session, i) => (
+              <div
+                key={session._id}
+                onClick={() => handleSessionClick(session._id)}
+                className="card-brutal relative p-6 cursor-pointer transition-transform duration-300 hover:rotate-0 hover:shadow-brutal-lg"
+                style={{ transform: `rotate(${i % 2 === 0 ? -1 : 1}deg)` }}
+              >
+                <div className="washi-tape bg-accent -top-3 left-8 rotate-[-4deg]" />
+                <h3 className="font-heading font-bold text-lg text-text mb-2">{session.title}</h3>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-text/60">
+                  <span className="flex items-center gap-1.5">
+                    <CalendarDays className="w-4 h-4" strokeWidth={2.5} />
+                    {new Date(session.startedAt).toLocaleDateString()}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4" strokeWidth={2.5} />
+                    {formatDuration(sessionDuration(session))}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Image className="w-4 h-4" strokeWidth={2.5} />
+                    {session.imageCount} screenshot{session.imageCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div className="mt-4 flex justify-between items-center">
+                  <SessionStatusBadge session={session} />
+                  <div className="flex items-center gap-2">
+                    <DeleteSessionButton session={session} onDeleted={handleSessionDeleted} compact />
+                    <ArrowRight className="w-5 h-5 text-primary" strokeWidth={2.5} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {nextBefore && (
+          <div className="mt-10 text-center">
+            <button
+              onClick={() => fetchSessions(nextBefore)}
+              disabled={loading}
+              className="btn-brutal bg-surface text-text px-6 py-2 rounded-pill font-heading font-bold"
+            >
+              {loading ? 'Loading…' : 'Load more'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

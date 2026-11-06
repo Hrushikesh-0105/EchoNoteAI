@@ -4,15 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Echo Note Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../theme.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="background-pattern"></div>
-    
-    
     <div class="dashboard-container">
         <div class="dashboard-header">
-            <div class="dashboard-logo"></div>
+            <div class="dashboard-logo">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <rect x="9" y="2" width="6" height="12" rx="3"/>
+                    <path d="M5 10v1a7 7 0 0 0 14 0v-1"/>
+                    <line x1="12" y1="18" x2="12" y2="22"/>
+                    <line x1="8" y1="22" x2="16" y2="22"/>
+                </svg>
+            </div>
             <h1 class="dashboard-title">Echo Note</h1>
             <p class="user-welcome">Welcome back, <span class="user-name" id="userName">User</span>!</p>
         </div>
@@ -22,17 +30,14 @@
                 <input type="text" id="recordingTitle" placeholder="Enter recording title..." />
             </div>
 
-            <button class="action-button record-button" id="recordButton" disabled>
-                <span class="button-icon" id="recordIcon">🔴</span>
+            <button class="btn-brutal record-button" id="recordButton" disabled>
+                <span class="record-icon" id="recordIcon">
+                    <svg class="icon icon-idle" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="8"/></svg>
+                    <svg class="icon icon-active" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                </span>
                 <span id="recordText">Start Full Screen Recording</span>
             </button>
-            
-            <button class="action-button website-button" onclick="visitWebsite()">
-                <span class="button-icon">🌐</span>
-                Visit Website
-            </button>
         </div>
-
 
         <div class="status-indicator" id="statusIndicator">
             <div class="status-dot"></div>
@@ -40,14 +45,19 @@
         </div>
 
         <div class="recording-timer" id="recordingTimer" style="display: none;">
-            ⏱️ <span id="timerText">00:00</span>
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+            <span id="timerText">00:00</span>
+            <span class="time-left" id="timeLeftText"></span>
         </div>
+
+        <button class="btn-brutal view-session-button" id="viewSessionButton" hidden>
+            View summary on website
+        </button>
     </div>
-    
+
     <div class="version">v1.0</div>
 
-    <script type="module" src="app.js">
-        
-    </script>
+    <script src="../config.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>

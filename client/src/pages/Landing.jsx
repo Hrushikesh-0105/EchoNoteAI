@@ -1,95 +1,102 @@
 import { Link } from 'react-router-dom';
-import styles from './Landing.module.css';
+import { Video, Bot, Clock, Cloud } from 'lucide-react';
 
 export default function Landing() {
   const features = [
-    { title: 'Smart Recording', icon: '🎥', description: 'Record your meetings with a single click' },
-    { title: 'AI Summaries', icon: '🤖', description: 'Get instant AI-powered meeting summaries' },
-    { title: 'Time Stamps', icon: '⏱️', description: 'Navigate through key moments easily' },
-    { title: 'Cloud Sync', icon: '☁️', description: 'Access your notes from anywhere' },
+    { title: 'Smart Recording', icon: Video, description: 'Record your meetings with a single click' },
+    { title: 'AI Summaries', icon: Bot, description: 'Get instant AI-powered meeting summaries' },
+    { title: 'Time Stamps', icon: Clock, description: 'Navigate through key moments easily' },
+    { title: 'Cloud Sync', icon: Cloud, description: 'Access your notes from anywhere' },
+  ];
+
+  const steps = [
+    { number: '1', title: 'Install Extension', description: 'Add our Chrome extension to your browser' },
+    { number: '2', title: 'Record Meeting', description: 'Click to start recording your online class' },
+    { number: '3', title: 'Get Summary', description: 'Receive AI-generated notes and summaries' },
   ];
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section with Gradient */}
-      <div className={styles.heroSection}>
-        <div className={styles.gradientBackground} />
-        <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center py-12 md:py-20">
-            <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-              <span className="block">Transform Your</span>
-              <span className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-                Learning Experience
-              </span>
-            </h1>
-            <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-              Record your online classes and get AI-powered summaries in real-time.
-              Never miss important details again.
-            </p>
-            <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8 gap-4">
-              <Link to="/signup" className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 md:py-4 md:text-lg md:px-10 transition-all shadow-lg hover:shadow-xl">
-                Get Started
-              </Link>
-              <a href="#features" className="mt-3 sm:mt-0 w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 md:py-4 md:text-lg md:px-10 transition-all">
-                Learn More
-              </a>
-            </div>
+    <div className="min-h-screen bg-noise">
+      {/* Hero */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center py-16 md:py-24">
+          <h1 className="font-heading font-extrabold text-4xl sm:text-5xl md:text-6xl text-text">
+            Meetings, but make them
+            <span className="block text-primary">scrapbooks.</span>
+          </h1>
+          <p className="mt-6 max-w-md mx-auto text-base sm:text-lg md:max-w-2xl text-text/70">
+            Record your online classes and get AI-powered summaries in real-time.
+            Never miss important details again.
+          </p>
+          <div className="mt-8 max-w-md mx-auto flex flex-col sm:flex-row sm:justify-center gap-4">
+            <Link
+              to="/signup"
+              className="btn-brutal bg-primary text-text px-8 py-4 rounded-pill font-heading font-bold text-lg"
+            >
+              Get Started
+            </Link>
+            <a
+              href="#features"
+              className="btn-brutal bg-surface text-text px-8 py-4 rounded-pill font-heading font-bold text-lg"
+            >
+              Learn More
+            </a>
           </div>
         </div>
       </div>
 
-      {/* Rest of the content without gradient */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Features Grid */}
+        {/* Features */}
         <div id="features" className="py-16">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900">Powerful Features</h2>
-            <p className="mt-4 text-gray-500">Everything you need to enhance your learning experience</p>
+            <h2 className="font-heading font-extrabold text-3xl text-text">Powerful Features</h2>
+            <p className="mt-4 text-text/60">Everything you need to enhance your learning experience</p>
           </div>
-          <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {features.map((feature) => (
-              <div key={feature.title} className="relative group">
-                <div className="relative bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                  <div className="text-4xl mb-4">{feature.icon}</div>
-                  <h3 className="text-lg font-medium text-gray-900">{feature.title}</h3>
-                  <p className="mt-2 text-gray-500">{feature.description}</p>
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {features.map((feature, i) => (
+              <div
+                key={feature.title}
+                className="card-brutal p-6 transform transition-transform duration-300 hover:rotate-0"
+                style={{ transform: `rotate(${i % 2 === 0 ? -1 : 1}deg)` }}
+              >
+                <div className="w-12 h-12 rounded-chunky bg-accent border-2 border-text flex items-center justify-center mb-4">
+                  <feature.icon className="w-6 h-6 text-surface" strokeWidth={2.5} />
                 </div>
+                <h3 className="font-heading font-bold text-lg text-text">{feature.title}</h3>
+                <p className="mt-2 text-text/60">{feature.description}</p>
               </div>
             ))}
           </div>
         </div>
 
         {/* How It Works */}
-        <div className="py-16 border-t border-gray-100">
+        <div className="py-16 border-t-4 border-muted">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900">How It Works</h2>
-            <p className="mt-4 text-gray-500">Three simple steps to get started</p>
+            <h2 className="font-heading font-extrabold text-3xl text-text">How It Works</h2>
+            <p className="mt-4 text-text/60">Three simple steps to get started</p>
           </div>
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="flex-1 text-center p-6">
-              <div className="text-4xl mb-4">1️⃣</div>
-              <h3 className="text-lg font-medium">Install Extension</h3>
-              <p className="mt-2 text-gray-500">Add our Chrome extension to your browser</p>
-            </div>
-            <div className="flex-1 text-center p-6">
-              <div className="text-4xl mb-4">2️⃣</div>
-              <h3 className="text-lg font-medium">Record Meeting</h3>
-              <p className="mt-2 text-gray-500">Click to start recording your online class</p>
-            </div>
-            <div className="flex-1 text-center p-6">
-              <div className="text-4xl mb-4">3️⃣</div>
-              <h3 className="text-lg font-medium">Get Summary</h3>
-              <p className="mt-2 text-gray-500">Receive AI-generated notes and summaries</p>
-            </div>
+          <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+            {steps.map((step) => (
+              <div key={step.number} className="flex-1 text-center p-6">
+                <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-primary border-4 border-text shadow-brutal flex items-center justify-center font-heading font-extrabold text-xl text-text">
+                  {step.number}
+                </div>
+                <h3 className="font-heading font-bold text-lg text-text">{step.title}</h3>
+                <p className="mt-2 text-text/60">{step.description}</p>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* CTA Section */}
-        <div className="py-16 border-t border-gray-100">
-          <div className="bg-blue-600 rounded-2xl p-8 md:p-12 text-center text-white">
-            <h2 className="text-3xl font-bold mb-4">Ready to Transform Your Learning?</h2>
-            <p className="mb-8 text-blue-100">Join thousands of students already using EchoNote</p>
-            <Link to="/signup" className="inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 md:py-4 md:text-lg md:px-10 transition-all">
+        {/* CTA */}
+        <div className="py-16 border-t-4 border-muted">
+          <div className="card-brutal bg-accent p-8 md:p-12 text-center">
+            <h2 className="font-heading font-extrabold text-3xl text-text mb-4">Ready to Transform Your Learning?</h2>
+            <p className="mb-8 text-text/70">Join thousands of students already using EchoNote</p>
+            <Link
+              to="/signup"
+              className="btn-brutal inline-flex items-center justify-center bg-surface text-text px-8 py-4 rounded-pill font-heading font-bold text-lg"
+            >
               Start For Free
             </Link>
           </div>

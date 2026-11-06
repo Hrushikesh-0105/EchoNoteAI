@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-// define the Schemas
+// Sessions live in their own collection (schemas/sessionSchema.js), linked by userId
 const userSchema = new mongoose.Schema({
     email: {
         type: String,
@@ -17,35 +17,11 @@ const userSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
-    },
-    session: [
-        {
-            title: String,
-            finalSummary: Boolean,
-            date: {
-                type: Date,
-                default: Date.now
-            },
-            summary: String
-        }
-    ]
-}, { 
-    timestamps: true 
+    }
+}, {
+    timestamps: true
 });
 
-userSchema.statics.createFromClerk = async function(clerkUser) {
-    return this.findOneAndUpdate(
-        { email: clerkUser.email },
-        {
-            email: clerkUser.email,
-            firstName: clerkUser.firstName,
-        },
-        { upsert: true, new: true }
-    );
-};
+const UserModel = mongoose.model('user', userSchema);
 
-// create models
-const UserModel = mongoose.model("user", userSchema);
-
-// export 
-module.exports = UserModel
+module.exports = UserModel;

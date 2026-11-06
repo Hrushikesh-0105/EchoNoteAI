@@ -9,7 +9,7 @@ export default [
     files: ['**/*.{js,jsx}'],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      globals: { ...globals.browser, ...globals.webextensions },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },
@@ -29,5 +29,10 @@ export default [
         { allowConstantExport: true },
       ],
     },
+  },
+  {
+    // Build config runs in Node, not the browser
+    files: ['vite.config.js'],
+    languageOptions: { globals: globals.node },
   },
 ]
