@@ -11,9 +11,9 @@ function errorHandler(err, req, res, next) {
         logger.error(`${req.method} ${req.originalUrl} failed:`, err);
     }
 
-    res.status(statusCode).json({
-        error: isDeliberate ? err.message : 'Internal server error'
-    });
+    const body = { error: isDeliberate ? err.message : 'Internal server error' };
+    if (err instanceof ApiError && err.code) body.code = err.code;
+    res.status(statusCode).json(body);
 }
 
 function notFoundHandler(req, res) {

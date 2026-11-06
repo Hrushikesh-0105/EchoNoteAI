@@ -11,7 +11,7 @@ const requestLogger = require('./middlewares/requestLogger');
 const queue = require('./queue/connection');
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:5173')
     .split(',')
@@ -22,7 +22,8 @@ app.use(cors({
     credentials: true
 }));
 app.use(requestLogger);
-app.use(express.json({ limit: '10mb' }));
+// Screenshots arrive as multipart uploads (parsed per route), so JSON bodies stay small
+app.use(express.json({ limit: '1mb' }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/sessions', sessionRoutes);
